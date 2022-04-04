@@ -123,3 +123,12 @@ configs/tmp_param.json
 configs/generated/
 *.pdf
 *.pgf
+
+log
+env
+work_dirs
+pretrained
+
+# temporary ignore
+easymd
+mmdetection
