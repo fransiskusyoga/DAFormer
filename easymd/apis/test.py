@@ -40,7 +40,7 @@ def single_gpu_test_plus(model,
             result = model(return_loss=False, rescale=True, **data)
         assert isinstance(result,dict)
 
-        batch_size = len(result[0])
+        batch_size = len(list(result.values())[0])
         if show or out_dir:
             if batch_size == 1 and isinstance(data['img'][0], torch.Tensor):
                 img_tensor = data['img'][0]
