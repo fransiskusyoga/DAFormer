@@ -1,24 +1,96 @@
-cityscapesscripts==2.2.0
+######################################################
+# Main DL Frameworks
+######################################################
+torch==1.10.2+cu111
+torchvision==0.11.3+cu111
+
+######################################################
+# MMCV 1.3.7
+######################################################
+# runtime ###########
+addict
+numpy
+PyYAML
+regex;sys_platform=='win32'
+yapf
+Pillow
+
+# test ###########
+coverage
+lmdb
+#onnx==1.7.0
+onnxoptimizer
+#onnxruntime==1.4.0
+#pytest
+PyTurboJPEG
+scipy
+tiffile
+
+
+######################################################
+# MMdet 2.12.0
+######################################################
+# build ###########
+cython
+numpy
+
+# optional ###########
+albumentations>=0.3.2
+cityscapesscripts
+imagecorruptions
+#scipy
+sklearn
+
+# runtime ###########
+matplotlib
+#numpy
+pycocotools; platform_system == "Linux"
+pycocotools-windows; platform_system == "Windows"
+six
+terminaltables
+
+# test ###########
+asynctest
+codecov
+flake8
+interrogate
+isort==4.3.21
+# Note: used for kwarray.group_items, this may be ported to mmcv in the future.
+kwarray
+onnx==1.7.0
+onnxruntime==1.5.1
+pytest
+ubelt
+xdoctest>=0.10.0
+#yapf
+
+######################################################
+# Panformer
+######################################################
+#mmcv-full==1.3.4
+#mmdet==2.12.0
+timm
+#pycocotools
+einops==0.3.0
+#Pillow==8.0.1
+opencv-python==4.5.1.48
+#cityscapesscripts
+wandb
+seaborn
+
+
+######################################################
+# Others
+######################################################
 cycler==0.10.0
-gdown==4.2.0
+#gdown==4.2.0
 humanfriendly==9.2
 kiwisolver==1.2.0
 kornia==0.5.8
-matplotlib==3.4.2
-numpy==1.19.2
-opencv-python==4.4.0.46
 pandas==1.1.3
-Pillow==8.3.1
 prettytable==2.1.0
 pyparsing==2.4.7
 pytz==2020.1
-PyYAML==5.4.1
-scipy==1.6.3
-seaborn==0.11.1
-timm==0.3.2
-torch==1.7.1+cu110
-torchvision==0.8.2+cu110
 tqdm==4.48.2
 typing-extensions==3.7.4.3
 wcwidth==0.2.5
-yapf==0.31.0
