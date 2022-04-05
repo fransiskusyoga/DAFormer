@@ -130,5 +130,4 @@ work_dirs
 pretrained
 
 # temporary ignore
-easymd
 mmdetection
