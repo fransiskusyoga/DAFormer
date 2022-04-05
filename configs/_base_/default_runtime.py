@@ -1,5 +1,6 @@
 # Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
 
+checkpoint_config = dict(interval=1)
 # yapf:disable
 log_config = dict(
     interval=50,
