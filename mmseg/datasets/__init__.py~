@@ -7,7 +7,6 @@ from .synthia import SynthiaDataset
 from .uda_dataset import UDADataset
 from .panopticapi import *
 from .coco_panoptic import CocoDataset_panoptic
-from .samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
 
 __all__ = [
     'CustomDataset',
@@ -22,5 +21,4 @@ __all__ = [
     'SynthiaDataset',
     'UDADataset',
     'CocoDataset_panoptic',
-    'DistributedGroupSampler', 'DistributedSampler', 'GroupSampler'
 ]
