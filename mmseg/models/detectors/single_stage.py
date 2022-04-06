@@ -62,7 +62,7 @@ class SingleStageDetector(BaseDetector):
                 has: 'img_shape', 'scale_factor', 'flip', and may also contain
                 'filename', 'ori_shape', 'pad_shape', and 'img_norm_cfg'.
                 For details on the values of these keys see
-                :class:`mmdet.datasets.pipelines.Collect`.
+                :class:`mmseg.datasets.pipelines.Collect`.
             gt_bboxes (list[Tensor]): Each item are the truth boxes for each
                 image in [tl_x, tl_y, br_x, br_y] format.
             gt_labels (list[Tensor]): Class indices corresponding to each box
