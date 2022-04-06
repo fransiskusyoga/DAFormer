@@ -38,7 +38,7 @@ def build_loss(cfg):
     return LOSSES.build(cfg)
 
 
-def build_train_model(cfg, train_cfg=None, test_cfg=None):
+def build_uda_segmentor(cfg, train_cfg=None, test_cfg=None):
     """Build model."""
     if train_cfg is not None or test_cfg is not None:
         warnings.warn(
@@ -55,8 +55,7 @@ def build_train_model(cfg, train_cfg=None, test_cfg=None):
             cfg.uda, default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))
     else:
         return SEGMENTORS.build(
-            cfg.model,
-            default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))
+            cfg.model,default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))
 
 
 def build_segmentor(cfg, train_cfg=None, test_cfg=None):
