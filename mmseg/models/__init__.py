@@ -6,6 +6,9 @@ from .losses import *  # noqa: F401,F403
 from .necks import *  # noqa: F401,F403
 from .segmentors import *  # noqa: F401,F403
 from .uda import *  # noqa: F401,F403
+from .utils import *
+from .detectors import *
+from .panformer import *
 
 __all__ = [
     'BACKBONES', 'HEADS', 'LOSSES', 'SEGMENTORS', 'UDA', 'build_backbone',

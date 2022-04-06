@@ -21,4 +21,12 @@ __all__ = [
     'mit_b3',
     'mit_b4',
     'mit_b5',
+    'pvt_small_impr1_peg',
+    'pvt_v2_b2_ap',
+    'pvt_v2_b0_ap',
+    'pvt_v2_b5',
+    'pvt_v2_b2',
+    'pvt_v2_b0',
+    'pvt_v2_b1',
+    'SwinTransformer',
 ]

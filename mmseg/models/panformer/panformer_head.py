@@ -12,7 +12,7 @@ from mmdet.core import (bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh,
                         build_assigner, build_sampler, multi_apply,
                         reduce_mean)
 from mmdet.models.utils import build_transformer
-from easymd.models.panformer import DETRHeadv2
+from mmseg.models.panformer import DETRHeadv2
 
 
 

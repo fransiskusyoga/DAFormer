@@ -1,11 +1,11 @@
 from mmdet.core import bbox2result
 #from ..builder import DETECTORS
-from easymd.models.detectors.single_stage_panoptic_detector import SingleStagePanopticDetector
+from mmseg.models.detectors.single_stage_panoptic_detector import SingleStagePanopticDetector
 from mmdet.models.builder import DETECTORS, build_backbone, build_head, build_neck
 import torch
 import numpy as np
-from easymd.models.utils.transform import mask2result
-from easymd.models.utils.visual import save_tensor
+from mmseg.models.utils.transform import mask2result
+from mmseg.models.utils.visual import save_tensor
 from mmdet.core import bbox2result, bbox_mapping_back
 import mmcv
 from torchvision.transforms.transforms import ToTensor

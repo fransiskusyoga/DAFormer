@@ -10,7 +10,7 @@ from mmdet.core import bbox_overlaps
 #from .utils import weighted_loss
 from mmdet.models.losses.utils import weighted_loss
 from mmdet.models.builder import LOSSES
-from easymd.models.utils.visual import save_tensor
+from mmseg.models.utils.visual import save_tensor
 
 
 
