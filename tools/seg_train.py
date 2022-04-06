@@ -14,7 +14,7 @@ import time
 import mmcv
 import torch
 from mmcv import Config, DictAction
-from mmcv.runner import init_dist
+from mmcv.runner import get_dist_info, init_dist
 from mmcv.utils import get_git_hash
 
 from mmseg import __version__
@@ -98,6 +98,21 @@ def main(args):
     cfg = Config.fromfile(args.config)
     if args.options is not None:
         cfg.merge_from_dict(args.options)
+    
+    # Non elegant solution to solve swinformer problem
+    if(cfg.model['backbone']['type']=='SwinTransformer'):
+        cfg.model['backbone'].pop('depth', None)
+        cfg.model['backbone'].pop('num_stages', None)
+        cfg.model['backbone'].pop('norm_cfg', None)
+        cfg.model['backbone'].pop('norm_eval', None)
+        cfg.model['backbone'].pop('style', None)
+    
+    if args.cfg_options is not None:
+        cfg.merge_from_dict(args.cfg_options)
+    # import modules from string list.
+    if cfg.get('custom_imports', None):
+        from mmcv.utils import import_modules_from_strings
+        import_modules_from_strings(**cfg['custom_imports'])
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
@@ -127,6 +142,15 @@ def main(args):
         # print('####',args.launcher,cfg.dist_params) 
         distributed = True
         init_dist(args.launcher,**cfg.dist_params)
+        # re-set gpu_ids with distributed training mode
+        _, world_size = get_dist_info()
+        cfg.gpu_ids = range(world_size)
+
+
+    ### set segmentations folder to work_dir
+
+    #cfg.data.val.segmentations_folder = osp.join(cfg.work_dir,'seg') #cause error
+    #cfg.data.test.segmentations_folder= osp.join(cfg.work_dir,'seg') #cause error
 
     # create work_dir
     mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
@@ -184,8 +208,7 @@ def main(args):
         cfg.checkpoint_config.meta = dict(
             mmseg_version=f'{__version__}+{get_git_hash()[:7]}',
             config=cfg.pretty_text,
-            CLASSES=datasets[0].CLASSES,
-            PALETTE=datasets[0].PALETTE)
+            CLASSES=datasets[0].CLASSES)
     # add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES
     # passing checkpoint meta for saving best checkpoint

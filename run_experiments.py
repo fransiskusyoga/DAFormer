@@ -8,7 +8,7 @@ from datetime import datetime
 import torch
 from experiments import generate_experiment_cfgs
 from mmcv import Config, get_git_hash
-from tools import train
+from tools import seg_train
 
 
 def run_command(command):
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     if args.machine == 'local':
         for i, cfg in enumerate(cfgs):
             print('Run job {}'.format(cfg['name']))
-            train.main([config_files[i]])
+            seg_train.main([config_files[i]])
             torch.cuda.empty_cache()
     else:
         raise NotImplementedError(args.machine)
