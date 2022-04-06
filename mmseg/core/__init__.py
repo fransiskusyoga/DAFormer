@@ -4,3 +4,4 @@ from .seg import *  # noqa: F401, F403
 from .utils import *  # noqa: F401, F403
 from .bbox import *  # noqa: F401, F403
 from .mask import *  # noqa: F401, F403
+from .anchor import *  # noqa: F401, F403
