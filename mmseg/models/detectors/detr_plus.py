@@ -1,7 +1,6 @@
 from mmdet.core import bbox2result
-#from ..builder import DETECTORS
 from mmseg.models.detectors.single_stage_panoptic_detector import SingleStagePanopticDetector
-from mmdet.models.builder import DETECTORS, build_backbone, build_head, build_neck
+from mmseg.models.builder import SEGMENTORS, build_backbone, build_head, build_neck
 import torch
 import numpy as np
 from mmseg.models.utils.transform import mask2result
@@ -9,7 +8,7 @@ from mmseg.models.utils.visual import save_tensor
 from mmdet.core import bbox2result, bbox_mapping_back
 import mmcv
 from torchvision.transforms.transforms import ToTensor
-@DETECTORS.register_module()
+@SEGMENTORS.register_module()
 class DETR_plus(SingleStagePanopticDetector):
     r"""Implementation of `DETR: End-to-End Object Detection with
     Transformers <https://arxiv.org/pdf/2005.12872>`_"""

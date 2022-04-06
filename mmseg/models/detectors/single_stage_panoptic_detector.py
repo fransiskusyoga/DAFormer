@@ -5,11 +5,11 @@ import torch.nn.functional as F
 from mmdet.core import bbox2result
 from mmdet.models.detectors.base import BaseDetector
 from mmdet.models.detectors.single_stage import SingleStageDetector
-from mmdet.models.builder import DETECTORS, build_backbone, build_head, build_neck
+from mmdet.models.builder import SEGMENTORS, build_backbone, build_head, build_neck
 #from .base import BaseDetector
 import mmcv
 from torch.utils.checkpoint import checkpoint
-@DETECTORS.register_module()
+@SEGMENTORS.register_module()
 class SingleStagePanopticDetector(BaseDetector):
     """Base class for single-stage detectors.
 
