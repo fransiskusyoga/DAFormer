@@ -23,7 +23,7 @@ from torch import einsum
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
-# Copy-paste from defromable detr in mmdet.
+# Copy-paste from defromable detr in mmseg.
 @TRANSFORMER.register_module()
 class Deformable_Transformer(Transformer):
     """Implements the DeformableDETR transformer.

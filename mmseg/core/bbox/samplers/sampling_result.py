@@ -8,7 +8,7 @@ class SamplingResult(util_mixins.NiceRepr):
 
     Example:
         >>> # xdoctest: +IGNORE_WANT
-        >>> from mmdet.core.bbox.samplers.sampling_result import *  # NOQA
+        >>> from mmdemmsegt.core.bbox.samplers.sampling_result import *  # NOQA
         >>> self = SamplingResult.random(rng=10)
         >>> print(f'self = {self}')
         self = <SamplingResult({
@@ -107,7 +107,7 @@ class SamplingResult(util_mixins.NiceRepr):
             :obj:`SamplingResult`: Randomly generated sampling result.
 
         Example:
-            >>> from mmdet.core.bbox.samplers.sampling_result import *  # NOQA
+            >>> from mmseg.core.bbox.samplers.sampling_result import *  # NOQA
             >>> self = SamplingResult.random()
             >>> print(self.__dict__)
         """

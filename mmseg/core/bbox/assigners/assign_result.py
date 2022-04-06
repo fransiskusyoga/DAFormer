@@ -111,7 +111,7 @@ class AssignResult(util_mixins.NiceRepr):
             :obj:`AssignResult`: Randomly generated assign results.
 
         Example:
-            >>> from mmdet.core.bbox.assigners.assign_result import *  # NOQA
+            >>> from mmseg.core.bbox.assigners.assign_result import *  # NOQA
             >>> self = AssignResult.random()
             >>> print(self.info)
         """
@@ -177,7 +177,7 @@ class AssignResult(util_mixins.NiceRepr):
                 else:
                     labels = torch.from_numpy(
                         # remind that we set FG labels to [0, num_class-1]
-                        # since mmdet v2.0
+                        # since mmseg v2.0
                         # BG cat_id: num_class
                         rng.randint(0, num_classes, size=num_preds))
                     labels[~is_assigned] = 0

@@ -5,6 +5,8 @@ from .dataset_wrappers import ConcatDataset, RepeatDataset
 from .gta import GTADataset
 from .synthia import SynthiaDataset
 from .uda_dataset import UDADataset
+from .panopticapi import *
+from .coco_panoptic import CocoDataset_panoptic
 
 __all__ = [
     'CustomDataset',
@@ -18,4 +20,5 @@ __all__ = [
     'GTADataset',
     'SynthiaDataset',
     'UDADataset',
+    'CocoDataset_panoptic',
 ]

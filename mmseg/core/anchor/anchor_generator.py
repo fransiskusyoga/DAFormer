@@ -37,7 +37,7 @@ class AnchorGenerator(object):
             width and height. By default it is 0 in V2.0.
 
     Examples:
-        >>> from mmdet.core import AnchorGenerator
+        >>> from mmseg.core import AnchorGenerator
         >>> self = AnchorGenerator([16], [1.], [1.], [9])
         >>> all_anchors = self.grid_anchors([(2, 2)], device='cpu')
         >>> print(all_anchors)
@@ -508,7 +508,7 @@ class LegacyAnchorGenerator(AnchorGenerator):
             in v1.x models.
 
     Examples:
-        >>> from mmdet.core import LegacyAnchorGenerator
+        >>> from mmseg.core import LegacyAnchorGenerator
         >>> self = LegacyAnchorGenerator(
         >>>     [16], [1.], [1.], [9], center_offset=0.5)
         >>> all_anchors = self.grid_anchors(((2, 2),), device='cpu')

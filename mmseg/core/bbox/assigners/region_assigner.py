@@ -1,6 +1,6 @@
 import torch
 
-from mmseg.core.anchor import anchor_inside_flags
+from mmseg.core import anchor_inside_flags
 from ..builder import BBOX_ASSIGNERS
 from .assign_result import AssignResult
 from .base_assigner import BaseAssigner
