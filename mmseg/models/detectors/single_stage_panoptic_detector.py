@@ -2,10 +2,10 @@ from typing import FrozenSet
 from mmcv.runner.fp16_utils import auto_fp16
 import torch
 import torch.nn.functional as F
-from mmdet.core import bbox2result
-from mmdet.models.detectors.base import BaseDetector
-from mmdet.models.detectors.single_stage import SingleStageDetector
-from mmdet.models.builder import SEGMENTORS, build_backbone, build_head, build_neck
+from mmseg.core import bbox2result
+from mmseg.models.detectors.base import BaseDetector
+from mmseg.models.detectors.single_stage import SingleStageDetector
+from mmseg.models.builder import SEGMENTORS, build_backbone, build_head, build_neck
 #from .base import BaseDetector
 import mmcv
 from torch.utils.checkpoint import checkpoint
@@ -73,7 +73,7 @@ class SingleStagePanopticDetector(BaseDetector):
                 has: 'img_shape', 'scale_factor', 'flip', and may also contain
                 'filename', 'ori_shape', 'pad_shape', and 'img_norm_cfg'.
                 For details on the values of these keys see
-                :class:`mmdet.datasets.pipelines.Collect`.
+                :class:`mmseg.datasets.pipelines.Collect`.
             gt_bboxes (list[Tensor]): Each item are the truth boxes for each
                 image in [tl_x, tl_y, br_x, br_y] format.
             gt_labels (list[Tensor]): Class indices corresponding to each box

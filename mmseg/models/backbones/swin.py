@@ -14,8 +14,8 @@ from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 
 #from .load_checkpoint import load_checkpoint
 from mmcv.runner import load_checkpoint
-from mmdet.utils import get_root_logger
-from mmdet.models.builder import BACKBONES
+from mmseg.utils import get_root_logger
+from mmseg.models.builder import BACKBONES
 
 class Mlp(nn.Module):
     """ Multilayer perceptron."""

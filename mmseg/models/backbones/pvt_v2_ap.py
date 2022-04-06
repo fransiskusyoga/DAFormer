@@ -7,11 +7,11 @@ from functools import partial
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from timm.models.registry import register_model
 from timm.models.vision_transformer import _cfg
-from mmdet.utils import get_root_logger
+from mmseg.utils import get_root_logger
 from mmcv.runner import _load_checkpoint, load_state_dict
 import math
 import re
-from mmdet.models.builder import BACKBONES
+from mmseg.models.builder import BACKBONES
 
 
 

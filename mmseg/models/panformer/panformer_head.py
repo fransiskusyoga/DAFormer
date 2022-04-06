@@ -5,13 +5,13 @@ import torch.nn.functional as F
 from mmcv.cnn import Linear, bias_init_with_prob, constant_init
 from mmcv.runner import force_fp32
 import mmcv
-from mmdet.core import multi_apply
-from mmdet.models.utils.transformer import inverse_sigmoid
-from mmdet.models.builder import HEADS, build_loss
-from mmdet.core import (bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh,
+from mmseg.core import multi_apply
+from mmseg.models.utils.transformer import inverse_sigmoid
+from mmseg.models.builder import HEADS, build_loss
+from mmseg.core import (bbox_cxcywh_to_xyxy, bbox_xyxy_to_cxcywh,
                         build_assigner, build_sampler, multi_apply,
                         reduce_mean)
-from mmdet.models.utils import build_transformer
+from mmseg.models.utils import build_transformer
 from mmseg.models.panformer import DETRHeadv2
 
 

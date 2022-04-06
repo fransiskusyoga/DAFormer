@@ -1,6 +1,6 @@
 from mmcv.runner.fp16_utils import force_fp32
-from mmdet.models.utils.builder import TRANSFORMER
-from mmdet.models.utils import Transformer
+from mmseg.models.utils.builder import TRANSFORMER
+from mmseg.models.utils import Transformer
 import warnings
 import math
 import copy
@@ -16,7 +16,7 @@ from mmcv.cnn.bricks.transformer import (BaseTransformerLayer,
 from mmcv.runner.base_module import BaseModule
 from torch.nn.init import normal_
 
-from mmdet.models.utils.builder import TRANSFORMER
+from mmseg.models.utils.builder import TRANSFORMER
 from mmcv.cnn.bricks.registry import ATTENTION
 from torch import einsum
 

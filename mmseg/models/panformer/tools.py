@@ -1,22 +1,22 @@
-from mmdet.core import mask
+from mmseg.core import mask
 import torch
-from mmdet.core.bbox.assigners.base_assigner import BaseAssigner
+from mmseg.core.bbox.assigners.base_assigner import BaseAssigner
 
-from mmdet.core.bbox.assigners.assign_result import AssignResult
-from mmdet.core.bbox.transforms import bbox_cxcywh_to_xyxy
-from mmdet.core.bbox.match_costs import build_match_cost
-from mmdet.core.bbox.builder import BBOX_ASSIGNERS
+from mmseg.core.bbox.assigners.assign_result import AssignResult
+from mmseg.core.bbox.transforms import bbox_cxcywh_to_xyxy
+from mmseg.core.bbox.match_costs import build_match_cost
+from mmseg.core.bbox.builder import BBOX_ASSIGNERS
 try:
     from scipy.optimize import linear_sum_assignment
 except ImportError:
     linear_sum_assignment = None
 
-from mmdet.core.bbox.samplers.base_sampler import BaseSampler
-from mmdet.core.bbox.builder import BBOX_SAMPLERS
-from mmdet.core import mask
+from mmseg.core.bbox.samplers.base_sampler import BaseSampler
+from mmseg.core.bbox.builder import BBOX_SAMPLERS
+from mmseg.core import mask
 import torch
 
-from mmdet.utils import util_mixins
+from mmseg.utils import util_mixins
 
 
 INF = 10000000
@@ -120,13 +120,13 @@ class SamplingResult_segformer(util_mixins.NiceRepr):
             :obj:`SamplingResult`: Randomly generated sampling result.
 
         Example:
-            >>> from mmdet.core.bbox.samplers.sampling_result import *  # NOQA
+            >>> from mmseg.core.bbox.samplers.sampling_result import *  # NOQA
             >>> self = SamplingResult.random()
             >>> print(self.__dict__)
         """
-        from mmdet.core.bbox.samplers.random_sampler import RandomSampler
-        from mmdet.core.bbox.assigners.assign_result import AssignResult
-        from mmdet.core.bbox import demodata
+        from mmseg.core.bbox.samplers.random_sampler import RandomSampler
+        from mmseg.core.bbox.assigners.assign_result import AssignResult
+        from mmseg.core.bbox import demodata
         rng = demodata.ensure_rng(rng)
 
         # make probabalistic?

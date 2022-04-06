@@ -5,11 +5,11 @@ import mmcv
 import torch
 import torch.nn as nn
 
-from mmdet.core import bbox_overlaps
+from mmseg.core import bbox_overlaps
 #from ..builder import LOSSES
 #from .utils import weighted_loss
-from mmdet.models.losses.utils import weighted_loss
-from mmdet.models.builder import LOSSES
+from mmseg.models.losses.utils import weighted_loss
+from mmseg.models.builder import LOSSES
 from mmseg.models.utils.visual import save_tensor
 
 

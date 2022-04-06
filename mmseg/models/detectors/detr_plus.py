@@ -1,11 +1,10 @@
-from mmdet.core import bbox2result
 from mmseg.models.detectors.single_stage_panoptic_detector import SingleStagePanopticDetector
 from mmseg.models.builder import SEGMENTORS, build_backbone, build_head, build_neck
 import torch
 import numpy as np
 from mmseg.models.utils.transform import mask2result
 from mmseg.models.utils.visual import save_tensor
-from mmdet.core import bbox2result, bbox_mapping_back
+from mmseg.core import bbox2result, bbox_mapping_back
 import mmcv
 from torchvision.transforms.transforms import ToTensor
 @SEGMENTORS.register_module()
