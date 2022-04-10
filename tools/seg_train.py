@@ -19,7 +19,7 @@ from mmcv.utils import Config, DictAction, get_git_hash
 from mmseg import __version__
 from mmseg.apis import set_random_seed, train_segmentor
 from mmseg.datasets import build_dataset
-from mmseg.models.builder import build_train_model
+from mmseg.models.builder import build_uda_segmentor
 from mmseg.utils import collect_env, get_root_logger
 from mmseg.utils.collect_env import gen_code_archive
 
@@ -140,7 +140,7 @@ def main(args):
     meta['seed'] = args.seed
     meta['exp_name'] = osp.splitext(osp.basename(args.config))[0]
 
-    model = build_train_model(
+    model = build_uda_segmentor(
         cfg, train_cfg=cfg.get('train_cfg'), test_cfg=cfg.get('test_cfg'))
     model.init_weights()
 

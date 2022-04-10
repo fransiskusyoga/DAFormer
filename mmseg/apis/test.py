@@ -55,6 +55,8 @@ def single_gpu_test_pan(model,
     dataset = data_loader.dataset
     prog_bar = mmcv.ProgressBar(len(dataset))
     for i, data in enumerate(data_loader):
+        if (i==3):
+            break
         with torch.no_grad():
             result = model(return_loss=False, rescale=True, **data)
         assert isinstance(result,dict)
@@ -93,7 +95,7 @@ def single_gpu_test_pan(model,
             results['bbox'].extend([bbox for bbox in result['bbox']])
         if 'segm' in result.keys():
             results['segm'].extend([encode_mask_results(segm) for segm in result['segm']])
-        if 'panoptic' in results.keys():
+        if 'panoptic' in result.keys():
             results['panoptic'].extend([panoptic for panoptic in result['panoptic']]) 
 
         for _ in range(batch_size):

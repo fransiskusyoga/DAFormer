@@ -422,7 +422,7 @@ class CocoDataset_panoptic(CustomDataset):
 
         eval_results = OrderedDict()
         if 'panoptic' in metrics:
-           
+            
             assert 'panoptic' in results.keys()
             panoptic_result = results['panoptic'] 
             results_pq = pq_compute2(self.gt_json,panoptic_result, self.gt_folder, self.segmentations_folder,logger=logger)
