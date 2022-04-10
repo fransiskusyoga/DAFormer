@@ -7,6 +7,8 @@ from .synthia import SynthiaDataset
 from .uda_dataset import UDADataset
 from .panopticapi import *
 from .coco_panoptic import CocoDataset_panoptic
+from .utils import (NumClassCheckHook, get_loading_pipeline,
+                    replace_ImageToTensor)
 from .samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
 
 __all__ = [
@@ -22,5 +24,6 @@ __all__ = [
     'SynthiaDataset',
     'UDADataset',
     'CocoDataset_panoptic',
-    'DistributedGroupSampler', 'DistributedSampler', 'GroupSampler'
+    'DistributedGroupSampler', 'DistributedSampler', 'GroupSampler',
+    'NumClassCheckHook', 'get_loading_pipeline', 'replace_ImageToTensor'
 ]

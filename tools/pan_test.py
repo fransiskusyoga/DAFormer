@@ -4,7 +4,7 @@ import warnings
 import mmcv
 import torch
 from re import A
-import easymd
+import mmseg
 import os.path as osp
 from mmcv import Config, DictAction
 from mmcv.cnn import fuse_conv_bn
@@ -15,10 +15,10 @@ from mmcv.runner import (get_dist_info, init_dist,
 from mmseg.apis import multi_gpu_test, single_gpu_test
 from mmseg.datasets import (build_dataloader, build_dataset,
                             replace_ImageToTensor)
-from mmseg.models import build_detector
+from mmseg.models import build_segmentor
 
-from easymd.runner.checkpoints import load_checkpoint
-from easymd.apis import single_gpu_test_plus,multi_gpu_test_plus
+from mmseg.runner.checkpoints import load_checkpoint
+from mmseg.apis import single_gpu_test_plus,multi_gpu_test_plus
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -190,7 +190,7 @@ def main(extra_args=None):
 
     # build the model and load checkpoint
     cfg.model.train_cfg = None
-    model = build_detector(cfg.model, test_cfg=cfg.get('test_cfg'))
+    model = build_segmentor(cfg.model, test_cfg=cfg.get('test_cfg'))
     fp16_cfg = cfg.get('fp16', None)
     if fp16_cfg is not None:
         wrap_fp16_model(model)

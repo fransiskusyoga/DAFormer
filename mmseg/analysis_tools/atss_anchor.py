@@ -1,6 +1,6 @@
 
-from mmdet.core import anchor, build_anchor_generator,build_assigner
-import mmdet
+from mmseg.core import anchor, build_anchor_generator,build_assigner
+import mmseg
 import mmcv
 import numpy as np
 import time

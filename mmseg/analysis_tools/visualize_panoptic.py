@@ -18,21 +18,21 @@ import PIL.Image as Image
 import matplotlib.pyplot as plt
 from skimage.segmentation import find_boundaries
 import mmcv
-from panopticapi.utils import IdGenerator, rgb2id
+from mmseg.datasets.panopticapi.utils import IdGenerator, rgb2id
 try:
     from detectron2.data import MetadataCatalog
 except:
-    print('no detecteon2')
+    print('no detectron2')
 #from detectron2.utils.visualizer import Visualizer
 import torch
-from easymd.models.utils.visual import Visualizer # we modified the Visualizer from detectron2
+from mmseg.models.utils.visual import Visualizer # we modified the Visualizer from detectron2
 # whether from the PNG are used or new colors are generated
 generate_new_colors = True
 
-json_file = './datasets/annotations/panoptic_val2017.json'
-segmentations_folder = './datasets/annotations/panoptic_val2017'
-img_folder = './datasets/coco/val2017'
-panoptic_coco_categories = './easymd/datasets/panoptic_coco_categories.json'
+json_file = './data/coco/annotations/panoptic_val2017.json'
+segmentations_folder = './data/coco/annotations/panoptic_val2017'
+img_folder = './data/coco/val2017'
+panoptic_coco_categories = './converter/panoptic_coco_categories.json'
 
 with open(json_file, 'r') as f:
     coco_d = json.load(f)
@@ -139,19 +139,19 @@ def f(id):
         plt.axis('off')
         plt.subplot(234)
         msg = np.array(
-            Image.open(os.path.join('/home/lzq/easy-mmdet/seg_pwm', ann['file_name'])),dtype=np.uint8
+            Image.open(os.path.join('/home/lzq/easy-mmseg/seg_pwm', ann['file_name'])),dtype=np.uint8
     )
         plt.imshow(msg)
         plt.axis('off')
         plt.subplot(235)
         pwm = np.array(
-        Image.open(os.path.join('/home/lzq/easy-mmdet/seg_max', ann['file_name'])),dtype=np.uint8
+        Image.open(os.path.join('/home/lzq/easy-mmseg/seg_max', ann['file_name'])),dtype=np.uint8
     )
         plt.imshow(pwm)
         plt.axis('off')
         plt.subplot(236)
         hp = np.array(
-        Image.open(os.path.join('/home/lzq/easy-mmdet/seg_hp', ann['file_name'])),
+        Image.open(os.path.join('/home/lzq/easy-mmseg/seg_hp', ann['file_name'])),
         dtype=np.uint8
     )
         plt.imshow(hp)

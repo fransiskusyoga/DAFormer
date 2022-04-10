@@ -1,6 +1,6 @@
 from .ckpt_convert import mit_convert
 from .make_divisible import make_divisible
-from .res_layer import ResLayer
+from .res_layer import ResLayer, SimplifiedBasicBlock
 from .self_attention_block import SelfAttentionBlock
 from .shape_convert import nchw_to_nlc, nlc_to_nchw
 from .visual import *
@@ -17,5 +17,5 @@ __all__ = [
     'nchw_to_nlc', 'nlc_to_nchw', 'build_transformer', 'DetrTransformerDecoder',
     'DetrTransformerDecoderLayer', 'DynamicConv', 'Transformer',
     'gaussian_radius', 'gen_gaussian_target', 'LearnedPositionalEncoding',
-    'SinePositionalEncoding'
+    'SinePositionalEncoding', 'SimplifiedBasicBlock'
 ]

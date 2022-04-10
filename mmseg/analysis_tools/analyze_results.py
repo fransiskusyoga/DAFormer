@@ -5,9 +5,9 @@ import mmcv
 import numpy as np
 from mmcv import Config, DictAction
 
-from mmdet.core.evaluation import eval_map
-from mmdet.core.visualization import imshow_gt_det_bboxes
-from mmdet.datasets import build_dataset, get_loading_pipeline
+from mmseg.core.evaluation import eval_map
+from mmseg.core.visualization import imshow_gt_det_bboxes
+from mmseg.datasets import build_dataset, get_loading_pipeline
 
 
 def bbox_map_eval(det_result, annotation):

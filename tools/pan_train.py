@@ -14,9 +14,9 @@ from mmcv.utils import get_git_hash
 from mmseg import __version__
 from mmseg.apis import set_random_seed, train_detector
 from mmseg.datasets import build_dataset
-from mmseg.models import build_detector
+from mmseg.models import build_segmentor
 from mmseg.utils import collect_env, get_root_logger
-from easymd.apis.train import train_detector_plus
+from mmseg.apis.train import train_detector_plus
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
@@ -173,7 +173,7 @@ def main():
     meta['seed'] = args.seed
     meta['exp_name'] = osp.basename(args.config)
 
-    model = build_detector(
+    model = build_segmentor(
         cfg.model,
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))

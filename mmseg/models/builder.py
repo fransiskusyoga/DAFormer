@@ -16,6 +16,8 @@ HEADS = MODELS
 LOSSES = MODELS
 SEGMENTORS = MODELS
 UDA = MODELS
+ROI_EXTRACTORS = MODELS
+SHARED_HEADS = MODELS
 
 
 def build_backbone(cfg):
@@ -32,11 +34,17 @@ def build_head(cfg):
     """Build head."""
     return HEADS.build(cfg)
 
-
+def build_roi_extractor(cfg):
+    """Build roi extractor."""
+    return ROI_EXTRACTORS.build(cfg)
+    
 def build_loss(cfg):
     """Build loss."""
     return LOSSES.build(cfg)
 
+def build_shared_head(cfg):
+    """Build shared head."""
+    return SHARED_HEADS.build(cfg)
 
 def build_uda_segmentor(cfg, train_cfg=None, test_cfg=None):
     """Build model."""
@@ -56,8 +64,7 @@ def build_uda_segmentor(cfg, train_cfg=None, test_cfg=None):
     else:
         return SEGMENTORS.build(
             cfg.model,default_args=dict(train_cfg=train_cfg, test_cfg=test_cfg))
-
-
+    
 def build_segmentor(cfg, train_cfg=None, test_cfg=None):
     """Build segmentor."""
     if train_cfg is not None or test_cfg is not None:

@@ -68,7 +68,7 @@ xdoctest>=0.10.0
 # Panformer
 ######################################################
 #mmcv-full==1.3.4
-#mmdet==2.12.0
+#mmseg==2.12.0
 timm
 #pycocotools
 einops==0.3.0

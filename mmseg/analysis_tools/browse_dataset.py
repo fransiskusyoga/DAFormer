@@ -2,14 +2,14 @@ import argparse
 import os
 from pathlib import Path
 
-import mmdet
+import mmseg
 import mmcv
 from mmcv import Config
-from mmdet.datasets.builder import build_dataset
+from mmseg.datasets.builder import build_dataset
 import random
 import cv2 as cv
 import numpy as np
-import easymd
+import mmseg
 def parse_args():
     parser = argparse.ArgumentParser(description='Browse a dataset')
     parser.add_argument('config', help='train config file path')

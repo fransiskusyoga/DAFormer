@@ -13,14 +13,13 @@ import time
 
 import mmcv
 import torch
-from mmcv import Config, DictAction
-from mmcv.runner import get_dist_info, init_dist
-from mmcv.utils import get_git_hash
+from mmcv.runner import init_dist
+from mmcv.utils import Config, DictAction, get_git_hash
 
 from mmseg import __version__
 from mmseg.apis import set_random_seed, train_segmentor
 from mmseg.datasets import build_dataset
-from mmseg.models import build_uda_segmentor
+from mmseg.models.builder import build_train_model
 from mmseg.utils import collect_env, get_root_logger
 from mmseg.utils.collect_env import gen_code_archive
 
@@ -30,9 +29,9 @@ def parse_args(args):
     parser.add_argument('config', help='train config file path')
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
-        '--resume-from', help='the checkpoint file to resume from')
+        '--load-from', help='the checkpoint file to load weights from')
     parser.add_argument(
-        '--load-from', help='the checkpoint file to load from')
+        '--resume-from', help='the checkpoint file to resume from')
     parser.add_argument(
         '--no-validate',
         action='store_true',
@@ -55,22 +54,7 @@ def parse_args(args):
         action='store_true',
         help='whether to set deterministic options for CUDNN backend.')
     parser.add_argument(
-        '--options',
-        nargs='+',
-        action=DictAction,
-        help='override some settings in the used config, the key-value pair '
-        'in xxx=yyy format will be merged into config file (deprecate), '
-        'change to --cfg-options instead.')
-    parser.add_argument(
-        '--cfg-options',
-        nargs='+',
-        action=DictAction,
-        help='override some settings in the used config, the key-value pair '
-        'in xxx=yyy format will be merged into config file. If the value to '
-        'be overwritten is a list, it should be like key="[a,b]" or key=a,b '
-        'It also allows nested list/tuple values, e.g. key="[(a,b),(c,d)]" '
-        'Note that the quotation marks are necessary and that no white space '
-        'is allowed.')
+        '--options', nargs='+', action=DictAction, help='custom options')
     parser.add_argument(
         '--launcher',
         choices=['none', 'pytorch', 'slurm', 'mpi'],
@@ -81,38 +65,15 @@ def parse_args(args):
     if 'LOCAL_RANK' not in os.environ:
         os.environ['LOCAL_RANK'] = str(args.local_rank)
 
-    if args.options and args.cfg_options:
-        raise ValueError(
-            '--options and --cfg-options cannot be both '
-            'specified, --options is deprecated in favor of --cfg-options')
-    if args.options:
-        warnings.warn('--options is deprecated in favor of --cfg-options')
-        args.cfg_options = args.options
-
     return args
 
 
 def main(args):
     args = parse_args(args)
-    
+
     cfg = Config.fromfile(args.config)
     if args.options is not None:
         cfg.merge_from_dict(args.options)
-    
-    # Non elegant solution to solve swinformer problem
-    if(cfg.model['backbone']['type']=='SwinTransformer'):
-        cfg.model['backbone'].pop('depth', None)
-        cfg.model['backbone'].pop('num_stages', None)
-        cfg.model['backbone'].pop('norm_cfg', None)
-        cfg.model['backbone'].pop('norm_eval', None)
-        cfg.model['backbone'].pop('style', None)
-    
-    if args.cfg_options is not None:
-        cfg.merge_from_dict(args.cfg_options)
-    # import modules from string list.
-    if cfg.get('custom_imports', None):
-        from mmcv.utils import import_modules_from_strings
-        import_modules_from_strings(**cfg['custom_imports'])
     # set cudnn_benchmark
     if cfg.get('cudnn_benchmark', False):
         torch.backends.cudnn.benchmark = True
@@ -126,10 +87,10 @@ def main(args):
         cfg.work_dir = osp.join('./work_dirs',
                                 osp.splitext(osp.basename(args.config))[0])
     cfg.model.train_cfg.work_dir = cfg.work_dir
-    if args.resume_from is not None and osp.isfile(args.resume_from):
-        cfg.resume_from = args.resume_from
     if args.load_from is not None:
         cfg.load_from = args.load_from
+    if args.resume_from is not None:
+        cfg.resume_from = args.resume_from
     if args.gpu_ids is not None:
         cfg.gpu_ids = args.gpu_ids
     else:
@@ -139,18 +100,8 @@ def main(args):
     if args.launcher == 'none':
         distributed = False
     else:
-        # print('####',args.launcher,cfg.dist_params) 
         distributed = True
-        init_dist(args.launcher,**cfg.dist_params)
-        # re-set gpu_ids with distributed training mode
-        _, world_size = get_dist_info()
-        cfg.gpu_ids = range(world_size)
-
-
-    ### set segmentations folder to work_dir
-
-    #cfg.data.val.segmentations_folder = osp.join(cfg.work_dir,'seg') #cause error
-    #cfg.data.test.segmentations_folder= osp.join(cfg.work_dir,'seg') #cause error
+        init_dist(args.launcher, **cfg.dist_params)
 
     # create work_dir
     mmcv.mkdir_or_exist(osp.abspath(cfg.work_dir))
@@ -168,12 +119,12 @@ def main(args):
     meta = dict()
     # log env info
     env_info_dict = collect_env()
-    env_info = '\n'.join([(f'{k}: {v}') for k, v in env_info_dict.items()])
+    env_info = '\n'.join([f'{k}: {v}' for k, v in env_info_dict.items()])
     dash_line = '-' * 60 + '\n'
     logger.info('Environment info:\n' + dash_line + env_info + '\n' +
                 dash_line)
     meta['env_info'] = env_info
-    meta['config'] = cfg.pretty_text
+
     # log some basic info
     logger.info(f'Distributed training: {distributed}')
     logger.info(f'Config:\n{cfg.pretty_text}')
@@ -182,21 +133,19 @@ def main(args):
     if args.seed is None and 'seed' in cfg:
         args.seed = cfg['seed']
     if args.seed is not None:
-        logger.info(f'Set random seed to {args.seed}, '
-                    f'deterministic: {args.deterministic}')
+        logger.info(f'Set random seed to {args.seed}, deterministic: '
+                    f'{args.deterministic}')
         set_random_seed(args.seed, deterministic=args.deterministic)
     cfg.seed = args.seed
     meta['seed'] = args.seed
     meta['exp_name'] = osp.splitext(osp.basename(args.config))[0]
 
-    model = build_uda_segmentor(
-        cfg,
-        train_cfg=cfg.get('train_cfg'),
-        test_cfg=cfg.get('test_cfg'))
+    model = build_train_model(
+        cfg, train_cfg=cfg.get('train_cfg'), test_cfg=cfg.get('test_cfg'))
     model.init_weights()
-    #print('MODEL ARCH')
+
     logger.info(model)
-    #print('===============================')
+
     datasets = [build_dataset(cfg.data.train)]
     if len(cfg.workflow) == 2:
         val_dataset = copy.deepcopy(cfg.data.val)
@@ -208,7 +157,8 @@ def main(args):
         cfg.checkpoint_config.meta = dict(
             mmseg_version=f'{__version__}+{get_git_hash()[:7]}',
             config=cfg.pretty_text,
-            CLASSES=datasets[0].CLASSES)
+            CLASSES=datasets[0].CLASSES,
+            PALETTE=datasets[0].PALETTE)
     # add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES
     # passing checkpoint meta for saving best checkpoint

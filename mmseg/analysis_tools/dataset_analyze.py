@@ -4,11 +4,11 @@ import torch
 import os.path as osp
 import matplotlib.pyplot as plt
 
-#from mmdet import cv_core
+#from mmseg import cv_core
 
 from mmcv import Config
 import mmcv
-from mmdet.datasets.builder import build_dataset, build_dataloader
+from mmseg.datasets.builder import build_dataset, build_dataloader
 class Kmean(object):
     def __init__(self, cluster_number, number_iter=1, name='iou'):
         self.cluster_number = cluster_number

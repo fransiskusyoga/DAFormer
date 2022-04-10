@@ -3,7 +3,7 @@ import argparse
 import torch
 from mmcv import Config, DictAction
 
-from mmdet.models import build_detector
+from mmseg.models import build_segmentor
 
 try:
     from mmcv.cnn import get_model_complexity_info
@@ -53,7 +53,7 @@ def main():
         from mmcv.utils import import_modules_from_strings
         import_modules_from_strings(**cfg['custom_imports'])
 
-    model = build_detector(
+    model = build_segmentor(
         cfg.model,
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))

@@ -48,8 +48,8 @@ class CocoDataset_panoptic(CustomDataset):
   
     def __init__(self,
             segmentations_folder='seg',
-            gt_json = './datasets/annotations/panoptic_val2017.json',
-            gt_folder = './datasets/annotations/panoptic_val2017',
+            gt_json = './data/coco/annotations/panoptic_val2017.json',
+            gt_folder = './data/coco/annotations/panoptic_val2017',
             **kwarags):
             self.gt_json = gt_json
             self.gt_folder =gt_folder

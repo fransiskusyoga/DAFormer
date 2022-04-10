@@ -68,7 +68,7 @@ def show_coco(data_root, ann_file, img_prefix, only_bbox=False, show_all=True, c
     for i in range(len(image_ids)):
         id = image_ids[i]
         id =285
-        #/home/lzq/workspace/easy-mmdet/datasets/coco/val2017/000000000285.jpg
+        #/home/lzq/workspace/easy-mmseg/data/coco/val2017/000000000285.jpg
         image_data = example_coco.loadImgs(id)[0]
         path = os.path.join(data_root, img_prefix, image_data['file_name'])
         print(path)
@@ -91,11 +91,11 @@ def show_coco(data_root, ann_file, img_prefix, only_bbox=False, show_all=True, c
 
 if __name__ == '__main__':
     # 和cfg里面设置一样 coco
-    data_root = './datasets/coco/'
-    ann_file = './datasets/annotations/panoptic_val2017_detection_format.json'
+    data_root = './data/coco/'
+    ann_file = './data/coco/annotations/panoptic_val2017_detection_format.json'
     #category_name=['banner', 'blanket', 'bridge', 'cardboard', 'counter', 'curtain', 'door-stuff', 'floor-wood', 'flower', 'fruit', 'gravel', 'house', 'light', 'mirror-stuff', 'net', 'pillow', 'platform', 'playingfield', 'railroad', 'river', 'road', 'roof', 'sand', 'sea', 'shelf', 'snow', 'stairs', 'tent', 'towel', 'wall-brick', 'wall-stone', 'wall-tile', 'wall-wood', 'water-other', 'window-blind', 'window-other', 'tree-merged', 'fence-merged', 'ceiling-merged', 'sky-other-merged', 'cabinet-merged', 'table-merged', 'floor-other-merged', 'pavement-merged', 'mountain-merged', 'grass-merged', 'dirt-merged', 'paper-merged', 'food-other-merged', 'building-other-merged', 'rock-merged', 'wall-other-merged', 'rug-merged']
     #category_name = 'tree-merged'
-    #ann_file='/home/lzq/workspace/easy-mmdet/datasets/coco/annotations/instances_val2017.json'
+    #ann_file='/home/lzq/workspace/easy-mmseg/data/coco/annotations/instances_val2017.json'
     img_prefix = 'val2017/'
     show_coco(data_root, ann_file, img_prefix,show_all=True,only_bbox=False)
 
