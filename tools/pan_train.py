@@ -12,11 +12,10 @@ from mmcv.runner import get_dist_info, init_dist
 from mmcv.utils import get_git_hash
 
 from mmseg import __version__
-from mmseg.apis import set_random_seed, train_detector
+from mmseg.apis import set_random_seed, train_segmentor
 from mmseg.datasets import build_dataset
 from mmseg.models import build_segmentor
 from mmseg.utils import collect_env, get_root_logger
-from mmseg.apis.train import train_detector_plus
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
@@ -195,7 +194,7 @@ def main():
     # add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES
     
-    train_detector_plus(
+    train_segmentor(
         model,
         datasets,
         cfg,

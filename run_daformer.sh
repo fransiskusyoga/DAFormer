@@ -27,4 +27,4 @@ source env/bin/activate
 #python -m tools.pan_test  ./configs/panformer/panformer_swinl_24e_coco_panoptic.py ./work_dirs/models/panoptic_segformer_swinl_2x.pth --eval panoptic 
 
 # PAN train
-# python -m tools.pan_train ./configs/panformer/panformer_r50_12e_coco_panoptic.py --deterministic
+python -m tools.pan_train ./configs/panformer/panformer_r50_12e_coco_panoptic.py --deterministic

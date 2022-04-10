@@ -35,6 +35,10 @@ def set_random_seed(seed, deterministic=False):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
 
+
+
+
+
 def train_segmentor(model,
                    dataset,
                    cfg,
