@@ -32,12 +32,12 @@ def np2tmp(array, temp_file_name=None, tmpdir=None):
     return temp_file_name
 
 
-def single_gpu_test(model,
-                    data_loader,
-                    show=False,
-                    out_dir=None,
-                    efficient_test=False,
-                    opacity=0.5):
+def single_gpu_test_seg(model,
+                        data_loader,
+                        show=False,
+                        out_dir=None,
+                        efficient_test=False,
+                        opacity=0.5):
     """Test with single GPU.
 
     Args:
@@ -106,7 +106,7 @@ def single_gpu_test(model,
     return results
 
 
-def multi_gpu_test(model,
+def multi_gpu_test_seg(model,
                    data_loader,
                    tmpdir=None,
                    gpu_collect=False,

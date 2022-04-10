@@ -12,13 +12,12 @@ from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import (get_dist_info, init_dist, 
                          wrap_fp16_model)
                          
-from mmseg.apis import multi_gpu_test, single_gpu_test
 from mmseg.datasets import (build_dataloader, build_dataset,
                             replace_ImageToTensor)
 from mmseg.models import build_segmentor
 
 from mmseg.runner.checkpoints import load_checkpoint
-from mmseg.apis import single_gpu_test_plus,multi_gpu_test_plus
+from mmseg.apis import single_gpu_test_pan,multi_gpu_test_pan
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -207,7 +206,7 @@ def main(extra_args=None):
     if not distributed:
         model = MMDataParallel(model, device_ids=[0])
         #assert False,'TODO'
-        outputs = single_gpu_test_plus(model, data_loader, args.show, args.show_dir,
+        outputs = single_gpu_test_pan(model, data_loader, args.show, args.show_dir,
                                   args.show_score_thr)
     else:
         model = MMDistributedDataParallel(
@@ -216,7 +215,7 @@ def main(extra_args=None):
             broadcast_buffers=False)
         segmentations_folder = cfg.data.test.segmentations_folder
         datasets = cfg.model.bbox_head.get('datasets','coco')
-        outputs = multi_gpu_test_plus(model, data_loader,datasets,segmentations_folder, args.tmpdir,
+        outputs = multi_gpu_test_pan(model, data_loader,datasets,segmentations_folder, args.tmpdir,
                                  args.gpu_collect)
     rank, _ = get_dist_info()
     

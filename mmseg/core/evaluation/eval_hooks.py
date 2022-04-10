@@ -7,8 +7,7 @@ from mmcv.runner import DistEvalHook as _DistEvalHook
 from mmcv.runner import EvalHook as _EvalHook
 from torch.nn.modules.batchnorm import _BatchNorm
 
-
-class EvalHook(_EvalHook):
+class EvalHook_seg(_EvalHook):
     """Single GPU EvalHook, with efficient test support.
 
     Args:
@@ -32,8 +31,8 @@ class EvalHook(_EvalHook):
         if not self._should_evaluate(runner):
             return
 
-        from mmseg.apis import single_gpu_test
-        results = single_gpu_test(
+        from mmseg.apis import single_gpu_test_seg
+        results = single_gpu_test_seg(
             runner.model,
             self.dataloader,
             show=False,
@@ -44,7 +43,7 @@ class EvalHook(_EvalHook):
             self._save_ckpt(runner, key_score)
 
 
-class DistEvalHook(_DistEvalHook):
+class DistEvalHook_seg(_DistEvalHook):
     """Distributed EvalHook, with efficient test support.
 
     Args:
@@ -99,30 +98,23 @@ class DistEvalHook(_DistEvalHook):
 
             if self.save_best:
                 self._save_ckpt(runner, key_score)
-                
-import os.path as osp
-
-import torch.distributed as dist
-from mmcv.runner import DistEvalHook as BaseDistEvalHook
-from mmcv.runner import EvalHook as BaseEvalHook
-from torch.nn.modules.batchnorm import _BatchNorm
 
 
-class EvalHook_plus(BaseEvalHook):
+class EvalHook_pan(_EvalHook):
 
     def _do_evaluate(self, runner):
         """perform evaluation and save ckpt."""
         if not self._should_evaluate(runner):
             return
 
-        from easymd.apis import single_gpu_test_plus
-        results = single_gpu_test_plus(runner.model, self.dataloader, show=False)
+        from easymd.apis import single_gpu_test_pan
+        results = single_gpu_test_pan(runner.model, self.dataloader, show=False)
         runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
         key_score = self.evaluate(runner, results)
         if self.save_best:
             self._save_ckpt(runner, key_score)
 
-class DistEvalHook_plus(BaseDistEvalHook):
+class DistEvalHook_pan(_DistEvalHook):
     def __init__(self,segmentations_folder=None,datasets = 'coco',**kwargs):
         self.segmentations_folder = segmentations_folder
         self.datasets = datasets
@@ -149,8 +141,8 @@ class DistEvalHook_plus(BaseDistEvalHook):
         if tmpdir is None:
             tmpdir = osp.join(runner.work_dir, '.eval_hook')
 
-        from easymd.apis import multi_gpu_test_plus
-        results = multi_gpu_test_plus(
+        from easymd.apis import multi_gpu_test_pan
+        results = multi_gpu_test_pan(
             runner.model,
             self.dataloader,
             datasets = self.datasets,
