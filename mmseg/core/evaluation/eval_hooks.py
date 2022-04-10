@@ -118,7 +118,7 @@ class DistEvalHook_pan(_DistEvalHook):
     def __init__(self,segmentations_folder=None,datasets = 'coco',**kwargs):
         self.segmentations_folder = segmentations_folder
         self.datasets = datasets
-        super(DistEvalHook_plus,self).__init__(**kwargs)
+        super(DistEvalHook_pan,self).__init__(**kwargs)
     def _do_evaluate(self, runner):
         """perform evaluation and save ckpt."""
         # Synchronization of BatchNorm's buffer (running_mean

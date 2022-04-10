@@ -11,7 +11,7 @@ import torch
 from mmcv.parallel import MMDataParallel, MMDistributedDataParallel
 from mmcv.runner import build_optimizer, build_runner
 
-from mmseg.core import DistEvalHook, EvalHook
+from mmseg.core import DistEvalHook_seg, EvalHook_seg
 from mmseg.core.ddp_wrapper import DistributedDataParallelWrapper
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.utils import get_root_logger
@@ -91,19 +91,7 @@ def train_segmentor(model,
         warnings.warn(
             'config is now expected to have a `runner` section, '
             'please set `runner` in your config.', UserWarning)
-    print("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-    print("Runner")
-    print(cfg.runner)
-    print("Optimizer")
-    print(cfg.optimizer)
-    print("Work Dir")
-    print(cfg.work_dir)
-    print("Logger")
-    print(cfg.log_level)
-    print("Workflow")
-    print(cfg.workflow)
-    print("Meta")
-    print(cfg.checkpoint_config.meta)
+
     assert False
     runner = build_runner(
         cfg.runner,
@@ -134,7 +122,7 @@ def train_segmentor(model,
             shuffle=False)
         eval_cfg = cfg.get('evaluation', {})
         eval_cfg['by_epoch'] = cfg.runner['type'] != 'IterBasedRunner'
-        eval_hook = DistEvalHook if distributed else EvalHook
+        eval_hook = DistEvalHook_seg if distributed else EvalHook_seg
         runner.register_hook(eval_hook(val_dataloader, **eval_cfg))
 
     if cfg.resume_from:
