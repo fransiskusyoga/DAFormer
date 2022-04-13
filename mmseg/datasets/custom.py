@@ -1,120 +1,165 @@
+# Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
+# Modifications:
+# - Additional dataset location logging
+
+import os
 import os.path as osp
-import warnings
 from collections import OrderedDict
+from functools import reduce
 
 import mmcv
 import numpy as np
 from mmcv.utils import print_log
-from terminaltables import AsciiTable
+from prettytable import PrettyTable
 from torch.utils.data import Dataset
 
-from mmseg.core import eval_map, eval_recalls
+from mmseg.core import eval_metrics
+from mmseg.utils import get_root_logger
 from .builder import DATASETS
 from .pipelines import Compose
 
 
 @DATASETS.register_module()
 class CustomDataset(Dataset):
-    """Custom dataset for detection.
-
-    The annotation format is shown as follows. The `ann` field is optional for
-    testing.
+    """Custom dataset for semantic segmentation. An example of file structure
+    is as followed.
 
     .. code-block:: none
 
-        [
-            {
-                'filename': 'a.jpg',
-                'width': 1280,
-                'height': 720,
-                'ann': {
-                    'bboxes': <np.ndarray> (n, 4) in (x1, y1, x2, y2) order.
-                    'labels': <np.ndarray> (n, ),
-                    'bboxes_ignore': <np.ndarray> (k, 4), (optional field)
-                    'labels_ignore': <np.ndarray> (k, 4) (optional field)
-                }
-            },
-            ...
-        ]
+        ├── data
+        │   ├── my_dataset
+        │   │   ├── img_dir
+        │   │   │   ├── train
+        │   │   │   │   ├── xxx{img_suffix}
+        │   │   │   │   ├── yyy{img_suffix}
+        │   │   │   │   ├── zzz{img_suffix}
+        │   │   │   ├── val
+        │   │   ├── ann_dir
+        │   │   │   ├── train
+        │   │   │   │   ├── xxx{seg_map_suffix}
+        │   │   │   │   ├── yyy{seg_map_suffix}
+        │   │   │   │   ├── zzz{seg_map_suffix}
+        │   │   │   ├── val
+
+    The img/gt_semantic_seg pair of CustomDataset should be of the same
+    except suffix. A valid img/gt_semantic_seg filename pair should be like
+    ``xxx{img_suffix}`` and ``xxx{seg_map_suffix}`` (extension is also included
+    in the suffix). If split is given, then ``xxx`` is specified in txt file.
+    Otherwise, all files in ``img_dir/``and ``ann_dir`` will be loaded.
+    Please refer to ``docs/tutorials/new_dataset.md`` for more details.
+
 
     Args:
-        ann_file (str): Annotation file path.
-        pipeline (list[dict]): Processing pipeline.
+        pipeline (list[dict]): Processing pipeline
+        img_dir (str): Path to image directory
+        img_suffix (str): Suffix of images. Default: '.jpg'
+        ann_dir (str, optional): Path to annotation directory. Default: None
+        seg_map_suffix (str): Suffix of segmentation maps. Default: '.png'
+        split (str, optional): Split txt file. If split is specified, only
+            file with suffix in the splits will be loaded. Otherwise, all
+            images in img_dir/ann_dir will be loaded. Default: None
+        data_root (str, optional): Data root for img_dir/ann_dir. Default:
+            None.
+        test_mode (bool): If test_mode=True, gt wouldn't be loaded.
+        ignore_index (int): The label index to be ignored. Default: 255
+        reduce_zero_label (bool): Whether to mark label zero as ignored.
+            Default: False
         classes (str | Sequence[str], optional): Specify classes to load.
             If is None, ``cls.CLASSES`` will be used. Default: None.
-        data_root (str, optional): Data root for ``ann_file``,
-            ``img_prefix``, ``seg_prefix``, ``proposal_file`` if specified.
-        test_mode (bool, optional): If set True, annotation will not be loaded.
-        filter_empty_gt (bool, optional): If set true, images without bounding
-            boxes of the dataset's classes will be filtered out. This option
-            only works when `test_mode=False`, i.e., we never filter images
-            during tests.
+        palette (Sequence[Sequence[int]]] | np.ndarray | None):
+            The palette of segmentation map. If None is given, and
+            self.PALETTE is None, random palette will be generated.
+            Default: None
     """
 
     CLASSES = None
 
+    PALETTE = None
+
     def __init__(self,
-                 ann_file,
                  pipeline,
-                 classes=None,
+                 img_dir,
+                 img_suffix='.jpg',
+                 ann_dir=None,
+                 seg_map_suffix='.png',
+                 split=None,
                  data_root=None,
-                 img_prefix='',
-                 seg_prefix=None,
-                 proposal_file=None,
                  test_mode=False,
-                 filter_empty_gt=True):
-        self.ann_file = ann_file
+                 ignore_index=255,
+                 reduce_zero_label=False,
+                 classes=None,
+                 palette=None):
+        self.pipeline = Compose(pipeline)
+        self.img_dir = img_dir
+        self.img_suffix = img_suffix
+        self.ann_dir = ann_dir
+        self.seg_map_suffix = seg_map_suffix
+        self.split = split
         self.data_root = data_root
-        self.img_prefix = img_prefix
-        self.seg_prefix = seg_prefix
-        self.proposal_file = proposal_file
         self.test_mode = test_mode
-        self.filter_empty_gt = filter_empty_gt
-        self.CLASSES = self.get_classes(classes)
+        self.ignore_index = ignore_index
+        self.reduce_zero_label = reduce_zero_label
+        self.label_map = None
+        self.CLASSES, self.PALETTE = self.get_classes_and_palette(
+            classes, palette)
 
         # join paths if data_root is specified
         if self.data_root is not None:
-            if not osp.isabs(self.ann_file):
-                self.ann_file = osp.join(self.data_root, self.ann_file)
-            if not (self.img_prefix is None or osp.isabs(self.img_prefix)):
-                self.img_prefix = osp.join(self.data_root, self.img_prefix)
-            if not (self.seg_prefix is None or osp.isabs(self.seg_prefix)):
-                self.seg_prefix = osp.join(self.data_root, self.seg_prefix)
-            if not (self.proposal_file is None
-                    or osp.isabs(self.proposal_file)):
-                self.proposal_file = osp.join(self.data_root,
-                                              self.proposal_file)
-        # load annotations (and proposals)
-        self.data_infos = self.load_annotations(self.ann_file)
+            if not osp.isabs(self.img_dir):
+                self.img_dir = osp.join(self.data_root, self.img_dir)
+            if not (self.ann_dir is None or osp.isabs(self.ann_dir)):
+                self.ann_dir = osp.join(self.data_root, self.ann_dir)
+            if not (self.split is None or osp.isabs(self.split)):
+                self.split = osp.join(self.data_root, self.split)
 
-        if self.proposal_file is not None:
-            self.proposals = self.load_proposals(self.proposal_file)
-        else:
-            self.proposals = None
-
-        # filter images too small and containing no annotations
-        if not test_mode:
-            valid_inds = self._filter_imgs()
-            self.data_infos = [self.data_infos[i] for i in valid_inds]
-            if self.proposals is not None:
-                self.proposals = [self.proposals[i] for i in valid_inds]
-            # set group flag for the sampler
-            self._set_group_flag()
-
-        # processing pipeline
-        self.pipeline = Compose(pipeline)
+        # load annotations
+        self.img_infos = self.load_annotations(self.img_dir, self.img_suffix,
+                                               self.ann_dir,
+                                               self.seg_map_suffix, self.split)
 
     def __len__(self):
         """Total number of samples of data."""
-        return len(self.data_infos)
+        return len(self.img_infos)
 
-    def load_annotations(self, ann_file):
-        """Load annotation from annotation file."""
-        return mmcv.load(ann_file)
+    def load_annotations(self, img_dir, img_suffix, ann_dir, seg_map_suffix,
+                         split):
+        """Load annotation from directory.
 
-    def load_proposals(self, proposal_file):
-        """Load proposal from proposal file."""
-        return mmcv.load(proposal_file)
+        Args:
+            img_dir (str): Path to image directory
+            img_suffix (str): Suffix of images.
+            ann_dir (str|None): Path to annotation directory.
+            seg_map_suffix (str|None): Suffix of segmentation maps.
+            split (str|None): Split txt file. If split is specified, only file
+                with suffix in the splits will be loaded. Otherwise, all images
+                in img_dir/ann_dir will be loaded. Default: None
+
+        Returns:
+            list[dict]: All image info of dataset.
+        """
+
+        img_infos = []
+        if split is not None:
+            with open(split) as f:
+                for line in f:
+                    img_name = line.strip()
+                    img_info = dict(filename=img_name + img_suffix)
+                    if ann_dir is not None:
+                        seg_map = img_name + seg_map_suffix
+                        img_info['ann'] = dict(seg_map=seg_map)
+                    img_infos.append(img_info)
+        else:
+            for img in mmcv.scandir(img_dir, img_suffix, recursive=True):
+                img_info = dict(filename=img)
+                if ann_dir is not None:
+                    seg_map = img.replace(img_suffix, seg_map_suffix)
+                    img_info['ann'] = dict(seg_map=seg_map)
+                img_infos.append(img_info)
+
+        print_log(
+            f'Loaded {len(img_infos)} images from {img_dir}',
+            logger=get_root_logger())
+        return img_infos
 
     def get_ann_info(self, idx):
         """Get annotation by index.
@@ -126,56 +171,15 @@ class CustomDataset(Dataset):
             dict: Annotation info of specified index.
         """
 
-        return self.data_infos[idx]['ann']
-
-    def get_cat_ids(self, idx):
-        """Get category ids by index.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            list[int]: All categories in the image of specified index.
-        """
-
-        return self.data_infos[idx]['ann']['labels'].astype(np.int).tolist()
+        return self.img_infos[idx]['ann']
 
     def pre_pipeline(self, results):
         """Prepare results dict for pipeline."""
-        results['img_prefix'] = self.img_prefix
-        results['seg_prefix'] = self.seg_prefix
-        results['proposal_file'] = self.proposal_file
-        results['bbox_fields'] = []
-        results['mask_fields'] = []
         results['seg_fields'] = []
-
-    def _filter_imgs(self, min_size=32):
-        """Filter images too small."""
-        if self.filter_empty_gt:
-            warnings.warn(
-                'CustomDataset does not support filtering empty gt images.')
-        valid_inds = []
-        for i, img_info in enumerate(self.data_infos):
-            if min(img_info['width'], img_info['height']) >= min_size:
-                valid_inds.append(i)
-        return valid_inds
-
-    def _set_group_flag(self):
-        """Set flag according to image aspect ratio.
-
-        Images with aspect ratio greater than 1 will be set as group 1,
-        otherwise group 0.
-        """
-        self.flag = np.zeros(len(self), dtype=np.uint8)
-        for i in range(len(self)):
-            img_info = self.data_infos[i]
-            if img_info['width'] / img_info['height'] > 1:
-                self.flag[i] = 1
-
-    def _rand_another(self, idx):
-        """Get another random index from the same group as the given index."""
-        pool = np.where(self.flag == self.flag[idx])[0]
-        return np.random.choice(pool)
+        results['img_prefix'] = self.img_dir
+        results['seg_prefix'] = self.ann_dir
+        if self.custom_classes:
+            results['label_map'] = self.label_map
 
     def __getitem__(self, idx):
         """Get training/test data after pipeline.
@@ -184,18 +188,14 @@ class CustomDataset(Dataset):
             idx (int): Index of data.
 
         Returns:
-            dict: Training/test data (with annotation if `test_mode` is set \
-                True).
+            dict: Training/test data (with annotation if `test_mode` is set
+                False).
         """
 
         if self.test_mode:
             return self.prepare_test_img(idx)
-        while True:
-            data = self.prepare_train_img(idx)
-            if data is None:
-                idx = self._rand_another(idx)
-                continue
-            return data
+        else:
+            return self.prepare_train_img(idx)
 
     def prepare_train_img(self, idx):
         """Get training data and annotations after pipeline.
@@ -204,38 +204,49 @@ class CustomDataset(Dataset):
             idx (int): Index of data.
 
         Returns:
-            dict: Training data and annotation after pipeline with new keys \
+            dict: Training data and annotation after pipeline with new keys
                 introduced by pipeline.
         """
 
-        img_info = self.data_infos[idx]
+        img_info = self.img_infos[idx]
         ann_info = self.get_ann_info(idx)
         results = dict(img_info=img_info, ann_info=ann_info)
-        if self.proposals is not None:
-            results['proposals'] = self.proposals[idx]
         self.pre_pipeline(results)
         return self.pipeline(results)
 
     def prepare_test_img(self, idx):
-        """Get testing data  after pipeline.
+        """Get testing data after pipeline.
 
         Args:
             idx (int): Index of data.
 
         Returns:
-            dict: Testing data after pipeline with new keys introduced by \
+            dict: Testing data after pipeline with new keys introduced by
                 pipeline.
         """
 
-        img_info = self.data_infos[idx]
+        img_info = self.img_infos[idx]
         results = dict(img_info=img_info)
-        if self.proposals is not None:
-            results['proposals'] = self.proposals[idx]
         self.pre_pipeline(results)
         return self.pipeline(results)
 
-    @classmethod
-    def get_classes(cls, classes=None):
+    def format_results(self, results, **kwargs):
+        """Place holder to format result to dataset specific output."""
+
+    def get_gt_seg_maps(self, efficient_test=False):
+        """Get ground truth segmentation maps for evaluation."""
+        gt_seg_maps = []
+        for img_info in self.img_infos:
+            seg_map = osp.join(self.ann_dir, img_info['ann']['seg_map'])
+            if efficient_test:
+                gt_seg_map = seg_map
+            else:
+                gt_seg_map = mmcv.imread(
+                    seg_map, flag='unchanged', backend='pillow')
+            gt_seg_maps.append(gt_seg_map)
+        return gt_seg_maps
+
+    def get_classes_and_palette(self, classes=None, palette=None):
         """Get class names of current dataset.
 
         Args:
@@ -244,13 +255,15 @@ class CustomDataset(Dataset):
                 string, take it as a file name. The file contains the name of
                 classes where each line contains one class name. If classes is
                 a tuple or list, override the CLASSES defined by the dataset.
-
-        Returns:
-            tuple[str] or list[str]: Names of categories of the dataset.
+            palette (Sequence[Sequence[int]]] | np.ndarray | None):
+                The palette of segmentation map. If None is given, random
+                palette will be generated. Default: None
         """
         if classes is None:
-            return cls.CLASSES
+            self.custom_classes = False
+            return self.CLASSES, self.PALETTE
 
+        self.custom_classes = True
         if isinstance(classes, str):
             # take it as a file path
             class_names = mmcv.list_from_file(classes)
@@ -259,103 +272,135 @@ class CustomDataset(Dataset):
         else:
             raise ValueError(f'Unsupported type {type(classes)} of classes.')
 
-        return class_names
+        if self.CLASSES:
+            if not set(classes).issubset(self.CLASSES):
+                raise ValueError('classes is not a subset of CLASSES.')
 
-    def format_results(self, results, **kwargs):
-        """Place holder to format result to dataset specific output."""
+            # dictionary, its keys are the old label ids and its values
+            # are the new label ids.
+            # used for changing pixel labels in load_annotations.
+            self.label_map = {}
+            for i, c in enumerate(self.CLASSES):
+                if c not in class_names:
+                    self.label_map[i] = -1
+                else:
+                    self.label_map[i] = classes.index(c)
+
+        palette = self.get_palette_for_custom_classes(class_names, palette)
+
+        return class_names, palette
+
+    def get_palette_for_custom_classes(self, class_names, palette=None):
+
+        if self.label_map is not None:
+            # return subset of palette
+            palette = []
+            for old_id, new_id in sorted(
+                    self.label_map.items(), key=lambda x: x[1]):
+                if new_id != -1:
+                    palette.append(self.PALETTE[old_id])
+            palette = type(self.PALETTE)(palette)
+
+        elif palette is None:
+            if self.PALETTE is None:
+                palette = np.random.randint(0, 255, size=(len(class_names), 3))
+            else:
+                palette = self.PALETTE
+
+        return palette
 
     def evaluate(self,
                  results,
-                 metric='mAP',
+                 metric='mIoU',
                  logger=None,
-                 proposal_nums=(100, 300, 1000),
-                 iou_thr=0.5,
-                 scale_ranges=None):
+                 efficient_test=False,
+                 **kwargs):
         """Evaluate the dataset.
 
         Args:
             results (list): Testing results of the dataset.
-            metric (str | list[str]): Metrics to be evaluated.
+            metric (str | list[str]): Metrics to be evaluated. 'mIoU',
+                'mDice' and 'mFscore' are supported.
             logger (logging.Logger | None | str): Logger used for printing
                 related information during evaluation. Default: None.
-            proposal_nums (Sequence[int]): Proposal number used for evaluating
-                recalls, such as recall@100, recall@1000.
-                Default: (100, 300, 1000).
-            iou_thr (float | list[float]): IoU threshold. Default: 0.5.
-            scale_ranges (list[tuple] | None): Scale ranges for evaluating mAP.
-                Default: None.
+
+        Returns:
+            dict[str, float]: Default metrics.
         """
 
-        if not isinstance(metric, str):
-            assert len(metric) == 1
-            metric = metric[0]
-        allowed_metrics = ['mAP', 'recall']
-        if metric not in allowed_metrics:
-            raise KeyError(f'metric {metric} is not supported')
-        annotations = [self.get_ann_info(i) for i in range(len(self))]
-        eval_results = OrderedDict()
-        iou_thrs = [iou_thr] if isinstance(iou_thr, float) else iou_thr
-        if metric == 'mAP':
-            assert isinstance(iou_thrs, list)
-            mean_aps = []
-            for iou_thr in iou_thrs:
-                print_log(f'\n{"-" * 15}iou_thr: {iou_thr}{"-" * 15}')
-                mean_ap, _ = eval_map(
-                    results,
-                    annotations,
-                    scale_ranges=scale_ranges,
-                    iou_thr=iou_thr,
-                    dataset=self.CLASSES,
-                    logger=logger)
-                mean_aps.append(mean_ap)
-                eval_results[f'AP{int(iou_thr * 100):02d}'] = round(mean_ap, 3)
-            eval_results['mAP'] = sum(mean_aps) / len(mean_aps)
-        elif metric == 'recall':
-            gt_bboxes = [ann['bboxes'] for ann in annotations]
-            recalls = eval_recalls(
-                gt_bboxes, results, proposal_nums, iou_thr, logger=logger)
-            for i, num in enumerate(proposal_nums):
-                for j, iou in enumerate(iou_thrs):
-                    eval_results[f'recall@{num}@{iou}'] = recalls[i, j]
-            if recalls.shape[1] > 1:
-                ar = recalls.mean(axis=1)
-                for i, num in enumerate(proposal_nums):
-                    eval_results[f'AR@{num}'] = ar[i]
-        return eval_results
-
-    def __repr__(self):
-        """Print the number of instance number."""
-        dataset_type = 'Test' if self.test_mode else 'Train'
-        result = (f'\n{self.__class__.__name__} {dataset_type} dataset '
-                  f'with number of images {len(self)}, '
-                  f'and instance counts: \n')
+        if isinstance(metric, str):
+            metric = [metric]
+        allowed_metrics = ['mIoU', 'mDice', 'mFscore']
+        if not set(metric).issubset(set(allowed_metrics)):
+            raise KeyError('metric {} is not supported'.format(metric))
+        eval_results = {}
+        gt_seg_maps = self.get_gt_seg_maps(efficient_test)
         if self.CLASSES is None:
-            result += 'Category names are not provided. \n'
-            return result
-        instance_count = np.zeros(len(self.CLASSES) + 1).astype(int)
-        # count the instance number in each image
-        for idx in range(len(self)):
-            label = self.get_ann_info(idx)['labels']
-            unique, counts = np.unique(label, return_counts=True)
-            if len(unique) > 0:
-                # add the occurrence number to each class
-                instance_count[unique] += counts
-            else:
-                # background is the last index
-                instance_count[-1] += 1
-        # create a table with category count
-        table_data = [['category', 'count'] * 5]
-        row_data = []
-        for cls, count in enumerate(instance_count):
-            if cls < len(self.CLASSES):
-                row_data += [f'{cls} [{self.CLASSES[cls]}]', f'{count}']
-            else:
-                # add the background number
-                row_data += ['-1 background', f'{count}']
-            if len(row_data) == 10:
-                table_data.append(row_data)
-                row_data = []
+            num_classes = len(
+                reduce(np.union1d, [np.unique(_) for _ in gt_seg_maps]))
+        else:
+            num_classes = len(self.CLASSES)
+        ret_metrics = eval_metrics(
+            results,
+            gt_seg_maps,
+            num_classes,
+            self.ignore_index,
+            metric,
+            label_map=self.label_map,
+            reduce_zero_label=self.reduce_zero_label)
 
-        table = AsciiTable(table_data)
-        result += table.table
-        return result
+        if self.CLASSES is None:
+            class_names = tuple(range(num_classes))
+        else:
+            class_names = self.CLASSES
+
+        # summary table
+        ret_metrics_summary = OrderedDict({
+            ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
+            for ret_metric, ret_metric_value in ret_metrics.items()
+        })
+
+        # each class table
+        ret_metrics.pop('aAcc', None)
+        ret_metrics_class = OrderedDict({
+            ret_metric: np.round(ret_metric_value * 100, 2)
+            for ret_metric, ret_metric_value in ret_metrics.items()
+        })
+        ret_metrics_class.update({'Class': class_names})
+        ret_metrics_class.move_to_end('Class', last=False)
+
+        # for logger
+        class_table_data = PrettyTable()
+        for key, val in ret_metrics_class.items():
+            class_table_data.add_column(key, val)
+
+        summary_table_data = PrettyTable()
+        for key, val in ret_metrics_summary.items():
+            if key == 'aAcc':
+                summary_table_data.add_column(key, [val])
+            else:
+                summary_table_data.add_column('m' + key, [val])
+
+        print_log('per class results:', logger)
+        print_log('\n' + class_table_data.get_string(), logger=logger)
+        print_log('Summary:', logger)
+        print_log('\n' + summary_table_data.get_string(), logger=logger)
+
+        # each metric dict
+        for key, value in ret_metrics_summary.items():
+            if key == 'aAcc':
+                eval_results[key] = value / 100.0
+            else:
+                eval_results['m' + key] = value / 100.0
+
+        ret_metrics_class.pop('Class', None)
+        for key, value in ret_metrics_class.items():
+            eval_results.update({
+                key + '.' + str(name): value[idx] / 100.0
+                for idx, name in enumerate(class_names)
+            })
+
+        if mmcv.is_list_of(results, str):
+            for file_name in results:
+                os.remove(file_name)
+        return eval_results

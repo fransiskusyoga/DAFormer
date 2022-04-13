@@ -1,3 +1,5 @@
+# Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
+
 from collections.abc import Sequence
 
 import mmcv
@@ -54,6 +56,7 @@ class ToTensor(object):
             dict: The result dict contains the data converted
                 to :obj:`torch.Tensor`.
         """
+
         for key in self.keys:
             results[key] = to_tensor(results[key])
         return results
@@ -88,6 +91,7 @@ class ImageToTensor(object):
             dict: The result dict contains the image converted
                 to :obj:`torch.Tensor` and transposed to (C, H, W) order.
         """
+
         for key in self.keys:
             img = results[key]
             if len(img.shape) < 3:
@@ -113,22 +117,24 @@ class Transpose(object):
         self.order = order
 
     def __call__(self, results):
-        """Call function to transpose the channel order of data in results.
+        """Call function to convert image in results to :obj:`torch.Tensor` and
+        transpose the channel order.
 
         Args:
-            results (dict): Result dict contains the data to transpose.
+            results (dict): Result dict contains the image data to convert.
 
         Returns:
-            dict: The result dict contains the data transposed to \
-                ``self.order``.
+            dict: The result dict contains the image converted
+                to :obj:`torch.Tensor` and transposed to (C, H, W) order.
         """
+
         for key in self.keys:
             results[key] = results[key].transpose(self.order)
         return results
 
     def __repr__(self):
         return self.__class__.__name__ + \
-            f'(keys={self.keys}, order={self.order})'
+               f'(keys={self.keys}, order={self.order})'
 
 
 @PIPELINES.register_module()
@@ -139,13 +145,13 @@ class ToDataContainer(object):
         fields (Sequence[dict]): Each field is a dict like
             ``dict(key='xxx', **kwargs)``. The ``key`` in result will
             be converted to :obj:`mmcv.DataContainer` with ``**kwargs``.
-            Default: ``(dict(key='img', stack=True), dict(key='gt_bboxes'),
-            dict(key='gt_labels'))``.
+            Default: ``(dict(key='img', stack=True),
+            dict(key='gt_semantic_seg'))``.
     """
 
     def __init__(self,
-                 fields=(dict(key='img', stack=True), dict(key='gt_bboxes'),
-                         dict(key='gt_labels'))):
+                 fields=(dict(key='img',
+                              stack=True), dict(key='gt_semantic_seg'))):
         self.fields = fields
 
     def __call__(self, results):
@@ -156,7 +162,7 @@ class ToDataContainer(object):
             results (dict): Result dict contains the data to convert.
 
         Returns:
-            dict: The result dict contains the data converted to \
+            dict: The result dict contains the data converted to
                 :obj:`mmcv.DataContainer`.
         """
 
@@ -174,17 +180,11 @@ class ToDataContainer(object):
 class DefaultFormatBundle(object):
     """Default formatting bundle.
 
-    It simplifies the pipeline of formatting common fields, including "img",
-    "proposals", "gt_bboxes", "gt_labels", "gt_masks" and "gt_semantic_seg".
-    These fields are formatted as follows.
+    It simplifies the pipeline of formatting common fields, including "img"
+    and "gt_semantic_seg". These fields are formatted as follows.
 
     - img: (1)transpose, (2)to tensor, (3)to DataContainer (stack=True)
-    - proposals: (1)to tensor, (2)to DataContainer
-    - gt_bboxes: (1)to tensor, (2)to DataContainer
-    - gt_bboxes_ignore: (1)to tensor, (2)to DataContainer
-    - gt_labels: (1)to tensor, (2)to DataContainer
-    - gt_masks: (1)to tensor, (2)to DataContainer (cpu_only=True)
-    - gt_semantic_seg: (1)unsqueeze dim-0 (2)to tensor, \
+    - gt_semantic_seg: (1)unsqueeze dim-0 (2)to tensor,
                        (3)to DataContainer (stack=True)
     """
 
@@ -195,52 +195,22 @@ class DefaultFormatBundle(object):
             results (dict): Result dict contains the data to convert.
 
         Returns:
-            dict: The result dict contains the data that is formatted with \
+            dict: The result dict contains the data that is formatted with
                 default bundle.
         """
 
         if 'img' in results:
             img = results['img']
-            # add default meta keys
-            results = self._add_default_meta_keys(results)
             if len(img.shape) < 3:
                 img = np.expand_dims(img, -1)
             img = np.ascontiguousarray(img.transpose(2, 0, 1))
             results['img'] = DC(to_tensor(img), stack=True)
-        for key in ['proposals', 'gt_bboxes', 'gt_bboxes_ignore', 'gt_labels']:
-            if key not in results:
-                continue
-            results[key] = DC(to_tensor(results[key]))
-        if 'gt_masks' in results:
-            results['gt_masks'] = DC(results['gt_masks'], cpu_only=True)
         if 'gt_semantic_seg' in results:
+            # convert to long
             results['gt_semantic_seg'] = DC(
-                to_tensor(results['gt_semantic_seg'][None, ...]), stack=True)
-        return results
-
-    def _add_default_meta_keys(self, results):
-        """Add default meta keys.
-
-        We set default meta keys including `pad_shape`, `scale_factor` and
-        `img_norm_cfg` to avoid the case where no `Resize`, `Normalize` and
-        `Pad` are implemented during the whole pipeline.
-
-        Args:
-            results (dict): Result dict contains the data to convert.
-
-        Returns:
-            results (dict): Updated result dict contains the data to convert.
-        """
-        img = results['img']
-        results.setdefault('pad_shape', img.shape)
-        results.setdefault('scale_factor', 1.0)
-        num_channels = 1 if len(img.shape) < 3 else img.shape[2]
-        results.setdefault(
-            'img_norm_cfg',
-            dict(
-                mean=np.zeros(num_channels, dtype=np.float32),
-                std=np.ones(num_channels, dtype=np.float32),
-                to_rgb=False))
+                to_tensor(results['gt_semantic_seg'][None,
+                                                     ...].astype(np.int64)),
+                stack=True)
         return results
 
     def __repr__(self):
@@ -252,15 +222,14 @@ class Collect(object):
     """Collect data from the loader relevant to the specific task.
 
     This is usually the last stage of the data loader pipeline. Typically keys
-    is set to some subset of "img", "proposals", "gt_bboxes",
-    "gt_bboxes_ignore", "gt_labels", and/or "gt_masks".
+    is set to some subset of "img", "gt_semantic_seg".
 
     The "img_meta" item is always populated.  The contents of the "img_meta"
     dictionary depends on "meta_keys". By default this includes:
 
-        - "img_shape": shape of the image input to the network as a tuple \
-            (h, w, c).  Note that images may be zero padded on the \
-            bottom/right if the batch tensor is larger than this shape.
+        - "img_shape": shape of the image input to the network as a tuple
+            (h, w, c).  Note that images may be zero padded on the bottom/right
+            if the batch tensor is larger than this shape.
 
         - "scale_factor": a float indicating the preprocessing scale
 
@@ -273,7 +242,6 @@ class Collect(object):
         - "pad_shape": image shape after padding
 
         - "img_norm_cfg": a dict of normalization information:
-
             - mean - per channel mean subtraction
             - std - per channel std divisor
             - to_rgb - bool indicating if bgr was converted to rgb
@@ -304,7 +272,6 @@ class Collect(object):
 
         Returns:
             dict: The result dict contains the following keys
-
                 - keys in``self.keys``
                 - ``img_metas``
         """
@@ -320,45 +287,4 @@ class Collect(object):
 
     def __repr__(self):
         return self.__class__.__name__ + \
-            f'(keys={self.keys}, meta_keys={self.meta_keys})'
-
-
-@PIPELINES.register_module()
-class WrapFieldsToLists(object):
-    """Wrap fields of the data dictionary into lists for evaluation.
-
-    This class can be used as a last step of a test or validation
-    pipeline for single image evaluation or inference.
-
-    Example:
-        >>> test_pipeline = [
-        >>>    dict(type='LoadImageFromFile'),
-        >>>    dict(type='Normalize',
-                    mean=[123.675, 116.28, 103.53],
-                    std=[58.395, 57.12, 57.375],
-                    to_rgb=True),
-        >>>    dict(type='Pad', size_divisor=32),
-        >>>    dict(type='ImageToTensor', keys=['img']),
-        >>>    dict(type='Collect', keys=['img']),
-        >>>    dict(type='WrapFieldsToLists')
-        >>> ]
-    """
-
-    def __call__(self, results):
-        """Call function to wrap fields into lists.
-
-        Args:
-            results (dict): Result dict contains the data to wrap.
-
-        Returns:
-            dict: The result dict where value of ``self.keys`` are wrapped \
-                into list.
-        """
-
-        # Wrap dict fields into lists
-        for key, val in results.items():
-            results[key] = [val]
-        return results
-
-    def __repr__(self):
-        return f'{self.__class__.__name__}()'
+               f'(keys={self.keys}, meta_keys={self.meta_keys})'

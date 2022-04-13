@@ -1,22 +1,26 @@
+# Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
+# Modifications:
+# - Support UDADataset
+
 import copy
 import platform
 import random
 from functools import partial
 
 import numpy as np
+import torch
 from mmcv.parallel import collate
 from mmcv.runner import get_dist_info
 from mmcv.utils import Registry, build_from_cfg
-from torch.utils.data import DataLoader
-
-from .samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
+from torch.utils.data import DataLoader, DistributedSampler
 
 if platform.system() != 'Windows':
     # https://github.com/pytorch/pytorch/issues/973
     import resource
     rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+    base_soft_limit = rlimit[0]
     hard_limit = rlimit[1]
-    soft_limit = min(4096, hard_limit)
+    soft_limit = min(max(4096, base_soft_limit), hard_limit)
     resource.setrlimit(resource.RLIMIT_NOFILE, (soft_limit, hard_limit))
 
 DATASETS = Registry('dataset')
@@ -24,48 +28,57 @@ PIPELINES = Registry('pipeline')
 
 
 def _concat_dataset(cfg, default_args=None):
+    """Build :obj:`ConcatDataset by."""
     from .dataset_wrappers import ConcatDataset
-    ann_files = cfg['ann_file']
-    img_prefixes = cfg.get('img_prefix', None)
-    seg_prefixes = cfg.get('seg_prefix', None)
-    proposal_files = cfg.get('proposal_file', None)
-    separate_eval = cfg.get('separate_eval', True)
+    img_dir = cfg['img_dir']
+    ann_dir = cfg.get('ann_dir', None)
+    split = cfg.get('split', None)
+    num_img_dir = len(img_dir) if isinstance(img_dir, (list, tuple)) else 1
+    if ann_dir is not None:
+        num_ann_dir = len(ann_dir) if isinstance(ann_dir, (list, tuple)) else 1
+    else:
+        num_ann_dir = 0
+    if split is not None:
+        num_split = len(split) if isinstance(split, (list, tuple)) else 1
+    else:
+        num_split = 0
+    if num_img_dir > 1:
+        assert num_img_dir == num_ann_dir or num_ann_dir == 0
+        assert num_img_dir == num_split or num_split == 0
+    else:
+        assert num_split == num_ann_dir or num_ann_dir <= 1
+    num_dset = max(num_split, num_img_dir)
 
     datasets = []
-    num_dset = len(ann_files)
     for i in range(num_dset):
         data_cfg = copy.deepcopy(cfg)
-        # pop 'separate_eval' since it is not a valid key for common datasets.
-        if 'separate_eval' in data_cfg:
-            data_cfg.pop('separate_eval')
-        data_cfg['ann_file'] = ann_files[i]
-        if isinstance(img_prefixes, (list, tuple)):
-            data_cfg['img_prefix'] = img_prefixes[i]
-        if isinstance(seg_prefixes, (list, tuple)):
-            data_cfg['seg_prefix'] = seg_prefixes[i]
-        if isinstance(proposal_files, (list, tuple)):
-            data_cfg['proposal_file'] = proposal_files[i]
+        if isinstance(img_dir, (list, tuple)):
+            data_cfg['img_dir'] = img_dir[i]
+        if isinstance(ann_dir, (list, tuple)):
+            data_cfg['ann_dir'] = ann_dir[i]
+        if isinstance(split, (list, tuple)):
+            data_cfg['split'] = split[i]
         datasets.append(build_dataset(data_cfg, default_args))
 
-    return ConcatDataset(datasets, separate_eval)
+    return ConcatDataset(datasets)
 
 
 def build_dataset(cfg, default_args=None):
-    from .dataset_wrappers import (ConcatDataset, RepeatDataset,
-                                   ClassBalancedDataset)
-    if isinstance(cfg, (list, tuple)):
+    """Build datasets."""
+    from .dataset_wrappers import ConcatDataset, RepeatDataset
+    from mmseg.datasets import UDADataset
+    if cfg['type'] == 'UDADataset':
+        dataset = UDADataset(
+            source=build_dataset(cfg['source'], default_args),
+            target=build_dataset(cfg['target'], default_args),
+            cfg=cfg)
+    elif isinstance(cfg, (list, tuple)):
         dataset = ConcatDataset([build_dataset(c, default_args) for c in cfg])
-    elif cfg['type'] == 'ConcatDataset':
-        dataset = ConcatDataset(
-            [build_dataset(c, default_args) for c in cfg['datasets']],
-            cfg.get('separate_eval', True))
     elif cfg['type'] == 'RepeatDataset':
         dataset = RepeatDataset(
             build_dataset(cfg['dataset'], default_args), cfg['times'])
-    elif cfg['type'] == 'ClassBalancedDataset':
-        dataset = ClassBalancedDataset(
-            build_dataset(cfg['dataset'], default_args), cfg['oversample_thr'])
-    elif isinstance(cfg.get('ann_file'), (list, tuple)):
+    elif isinstance(cfg.get('img_dir'), (list, tuple)) or isinstance(
+            cfg.get('split', None), (list, tuple)):
         dataset = _concat_dataset(cfg, default_args)
     else:
         dataset = build_from_cfg(cfg, DATASETS, default_args)
@@ -80,6 +93,9 @@ def build_dataloader(dataset,
                      dist=True,
                      shuffle=True,
                      seed=None,
+                     drop_last=False,
+                     pin_memory=True,
+                     persistent_workers=True,
                      **kwargs):
     """Build PyTorch DataLoader.
 
@@ -96,6 +112,16 @@ def build_dataloader(dataset,
         dist (bool): Distributed training/test or not. Default: True.
         shuffle (bool): Whether to shuffle the data at every epoch.
             Default: True.
+        seed (int | None): Seed to be used. Default: None.
+        drop_last (bool): Whether to drop the last incomplete batch in epoch.
+            Default: False
+        pin_memory (bool): Whether to use pin_memory in DataLoader.
+            Default: True
+        persistent_workers (bool): If True, the data loader will not shutdown
+            the worker processes after a dataset has been consumed once.
+            This allows to maintain the workers Dataset instances alive.
+            The argument also has effect in PyTorch>=1.7.0.
+            Default: True
         kwargs: any keyword argument to be used to initialize DataLoader
 
     Returns:
@@ -103,18 +129,13 @@ def build_dataloader(dataset,
     """
     rank, world_size = get_dist_info()
     if dist:
-        # DistributedGroupSampler will definitely shuffle the data to satisfy
-        # that images on each GPU are in the same group
-        if shuffle:
-            sampler = DistributedGroupSampler(
-                dataset, samples_per_gpu, world_size, rank, seed=seed)
-        else:
-            sampler = DistributedSampler(
-                dataset, world_size, rank, shuffle=False, seed=seed)
+        sampler = DistributedSampler(
+            dataset, world_size, rank, shuffle=shuffle)
+        shuffle = False
         batch_size = samples_per_gpu
         num_workers = workers_per_gpu
     else:
-        sampler = GroupSampler(dataset, samples_per_gpu) if shuffle else None
+        sampler = None
         batch_size = num_gpus * samples_per_gpu
         num_workers = num_gpus * workers_per_gpu
 
@@ -122,22 +143,47 @@ def build_dataloader(dataset,
         worker_init_fn, num_workers=num_workers, rank=rank,
         seed=seed) if seed is not None else None
 
-    data_loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        sampler=sampler,
-        num_workers=num_workers,
-        collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
-        pin_memory=False,
-        worker_init_fn=init_fn,
-        **kwargs)
+    if torch.__version__ >= '1.8.0':
+        data_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=num_workers,
+            collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
+            pin_memory=pin_memory,
+            shuffle=shuffle,
+            worker_init_fn=init_fn,
+            drop_last=drop_last,
+            persistent_workers=persistent_workers,
+            **kwargs)
+    else:
+        data_loader = DataLoader(
+            dataset,
+            batch_size=batch_size,
+            sampler=sampler,
+            num_workers=num_workers,
+            collate_fn=partial(collate, samples_per_gpu=samples_per_gpu),
+            pin_memory=pin_memory,
+            shuffle=shuffle,
+            worker_init_fn=init_fn,
+            drop_last=drop_last,
+            **kwargs)
 
     return data_loader
 
 
 def worker_init_fn(worker_id, num_workers, rank, seed):
-    # The seed of each worker equals to
-    # num_worker * rank + worker_id + user_seed
+    """Worker init func for dataloader.
+
+    The seed of each worker equals to num_worker * rank + worker_id + user_seed
+
+    Args:
+        worker_id (int): Worker id.
+        num_workers (int): Number of workers.
+        rank (int): The rank of current process.
+        seed (int): The random seed to use.
+    """
+
     worker_seed = num_workers * rank + worker_id + seed
     np.random.seed(worker_seed)
     random.seed(worker_seed)
