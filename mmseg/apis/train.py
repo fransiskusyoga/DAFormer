@@ -251,7 +251,6 @@ def train_segmentor(model,
             'config is now expected to have a `runner` section, '
             'please set `runner` in your config.', UserWarning)
 
-    assert False
     runner = build_runner(
         cfg.runner,
         default_args=dict(
