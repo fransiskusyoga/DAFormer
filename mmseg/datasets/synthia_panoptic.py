@@ -1,10 +1,10 @@
 from . import CityscapesDataset
 from .builder import DATASETS
-from .custom import CustomDataset
-
+from .custom_panuda import CustomDatasetPanUDA
+import json
 
 @DATASETS.register_module()
-class SynthiaDataset_panoptic(CustomDataset):
+class SynthiaDataset_panoptic(CustomDatasetPanUDA):
     CLASSES = CityscapesDataset.CLASSES
     PALETTE = CityscapesDataset.PALETTE
 
@@ -19,3 +19,4 @@ class SynthiaDataset_panoptic(CustomDataset):
             seg_map_suffix='_labelTrainIds.png',
             split=None,
             **kwargs)
+

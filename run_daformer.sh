@@ -22,7 +22,7 @@ source env/bin/activate
 # python -m tools.seg_test work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/211108_1622_gta2cs_daformer_s0_7f24c.json work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/latest.pth --eval mIoU --show-dir work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/preds --opacity 1
 
 # SEG train
-# python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
+python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
 # python run_experiments.py --config configs/daformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
 # python run_experiments.py --config configs/daformer/synthia_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
 # python run_experiments.py --config configs/generated/local-exp7/220416_1058_syn2cs_dacs_a999_fdthings_rcs001_cpl_daformer_sepaspp_mitb5_poly10warm_s0_49597.json
@@ -44,4 +44,4 @@ source env/bin/activate
 
 
 # DAPan train
-python run_experiments.py --config configs/dapanformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_dapanformer_mitb5_s0.py
+# python run_experiments.py --config configs/dapanformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_dapanformer_mitb5_s0.py

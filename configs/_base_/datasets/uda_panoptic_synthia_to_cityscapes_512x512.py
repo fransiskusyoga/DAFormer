@@ -6,7 +6,7 @@ img_norm_cfg = dict(
 crop_size = (512, 512)
 synthia_train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations'),
+    dict(type='LoadAnnotationsPanoptic'),
     dict(type='Resize', img_scale=(1280, 760)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
@@ -18,7 +18,7 @@ synthia_train_pipeline = [
 ]
 cityscapes_train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations'),
+    dict(type='LoadAnnotationsPanoptic'),
     dict(type='Resize', img_scale=(1024, 512)),
     dict(type='RandomCrop', crop_size=crop_size),
     dict(type='RandomFlip', prob=0.5),

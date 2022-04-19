@@ -14,7 +14,7 @@ from .pipelines import Compose
 
 
 @DATASETS.register_module()
-class CustomDataset(Dataset):
+class CustomDatasetPan(Dataset):
     """Custom dataset for detection.
 
     The annotation format is shown as follows. The `ann` field is optional for

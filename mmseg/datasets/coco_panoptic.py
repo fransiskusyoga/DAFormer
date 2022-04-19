@@ -14,12 +14,12 @@ from terminaltables import AsciiTable
 from mmseg.core import eval_recalls
 from mmseg.datasets.api_wrappers import COCO, COCOeval
 from mmseg.datasets.builder import DATASETS
-from mmseg.datasets.custom import CustomDataset
+from mmseg.datasets.custom_pan import CustomDatasetPan
 from mmseg.datasets.panopticapi import pq_compute2
 from mmseg.datasets.panopticapi import converter
 
 @DATASETS.register_module()
-class CocoDataset_panoptic(CustomDataset):
+class CocoDataset_panoptic(CustomDatasetPan):
 
     CLASSES = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 
         'train', 'truck', 'boat', 'traffic light', 'fire hydrant',

@@ -1,6 +1,8 @@
 from .builder import DATASETS, PIPELINES, build_dataloader, build_dataset
 from .cityscapes import CityscapesDataset
-from .custom import CustomDataset
+from .custom_seguda import CustomDatasetSegUDA
+from .custom_panuda import CustomDatasetPanUDA
+from .custom_pan import CustomDatasetPan
 from .dataset_wrappers import ConcatDataset, RepeatDataset
 from .gta import GTADataset
 from .synthia import SynthiaDataset
@@ -13,7 +15,9 @@ from .utils import (NumClassCheckHook, get_loading_pipeline,
 from .samplers import DistributedGroupSampler, DistributedSampler, GroupSampler
 
 __all__ = [
-    'CustomDataset',
+    'CustomDatasetSegUDA',
+    'CustomDatasetPanUDA',
+    'CustomDatasetPan',
     'build_dataloader',
     'ConcatDataset',
     'RepeatDataset',

@@ -20,7 +20,7 @@ from .pipelines import Compose
 
 
 @DATASETS.register_module()
-class CustomDataset(Dataset):
+class CustomDatasetPanUDA(Dataset):
     """Custom dataset for semantic segmentation. An example of file structure
     is as followed.
 
@@ -81,6 +81,7 @@ class CustomDataset(Dataset):
                  img_dir,
                  img_suffix='.jpg',
                  ann_dir=None,
+                 ann_file=None,
                  seg_map_suffix='.png',
                  split=None,
                  data_root=None,
@@ -93,8 +94,9 @@ class CustomDataset(Dataset):
         self.img_dir = img_dir
         self.img_suffix = img_suffix
         self.ann_dir = ann_dir
+        self.ann_file = ann_file
         self.seg_map_suffix = seg_map_suffix
-        self.split = split
+        self.split = split # not supported yet
         self.data_root = data_root
         self.test_mode = test_mode
         self.ignore_index = ignore_index
@@ -113,71 +115,51 @@ class CustomDataset(Dataset):
                 self.split = osp.join(self.data_root, self.split)
 
         # load annotations
-        self.img_infos = self.load_annotations(self.img_dir, self.img_suffix,
-                                               self.ann_dir,
-                                               self.seg_map_suffix, self.split)
+        """ Structure of data in ann_file.json
+        - annotation - list of dictionary
+          - file_name
+          - image_id
+          - segment_info - list of dictionary 
+            - area
+            - bbox 
+            - categoty_id
+            - id
+            - is_crowd
+          example d:
+          {"file_name": "0000000.png", "image_id": "0000000", "segments_info": [ 
+              {"area": 6022,"bbox": [935, 394, 220, 156], "category_id": 255,"id": 0, "iscrowd": 1},
+              {"area": 159673,"bbox": [296, 0, 984, 316], "category_id": 9, "id": 1, "iscrowd": 1}
+            ]
+          }
+        - images - list of dictionary 
+          - filename
+          - height
+          - id 
+          - width
+          example :
+          {'file_name': '0000000.png', 'height': 760, 'id': '0000000', 'width': 1280}
+        """
+        self.img_infos = self.load_annotations(self.img_dir, self.ann_file)
 
     def __len__(self):
         """Total number of samples of data."""
-        return len(self.img_infos)
+        return len(self.img_infos['images'])
 
-    def load_annotations(self, img_dir, img_suffix, ann_dir, seg_map_suffix,
-                         split):
-        """Load annotation from directory.
-
-        Args:
-            img_dir (str): Path to image directory
-            img_suffix (str): Suffix of images.
-            ann_dir (str|None): Path to annotation directory.
-            seg_map_suffix (str|None): Suffix of segmentation maps.
-            split (str|None): Split txt file. If split is specified, only file
-                with suffix in the splits will be loaded. Otherwise, all images
-                in img_dir/ann_dir will be loaded. Default: None
-
-        Returns:
-            list[dict]: All image info of dataset.
-        """
-
-        img_infos = []
-        if split is not None:
-            with open(split) as f:
-                for line in f:
-                    img_name = line.strip()
-                    img_info = dict(filename=img_name + img_suffix)
-                    if ann_dir is not None:
-                        seg_map = img_name + seg_map_suffix
-                        img_info['ann'] = dict(seg_map=seg_map)
-                    img_infos.append(img_info)
-        else:
-            for img in mmcv.scandir(img_dir, img_suffix, recursive=True):
-                img_info = dict(filename=img)
-                if ann_dir is not None:
-                    seg_map = img.replace(img_suffix, seg_map_suffix)
-                    img_info['ann'] = dict(seg_map=seg_map)
-                img_infos.append(img_info)
-
-        print_log(
-            f'Loaded {len(img_infos)} images from {img_dir}',
-            logger=get_root_logger())
-        return img_infos
+    def load_annotations(self, ann_file):
+        """Load annotation from annotation file."""
+        return mmcv.load(ann_file)
 
     def get_ann_info(self, idx):
-        """Get annotation by index.
-
-        Args:
-            idx (int): Index of data.
-
-        Returns:
-            dict: Annotation info of specified index.
-        """
-
-        return self.img_infos[idx]['ann']
+        return self.img_infos['annotations'][idx]
 
     def pre_pipeline(self, results):
         """Prepare results dict for pipeline."""
         results['seg_fields'] = []
         results['img_prefix'] = self.img_dir
         results['seg_prefix'] = self.ann_dir
+        results['bbox_fields'] = []
+        results['mask_fields'] = []
+        results['seg_fields'] = []
         if self.custom_classes:
             results['label_map'] = self.label_map
 
@@ -208,7 +190,7 @@ class CustomDataset(Dataset):
                 introduced by pipeline.
         """
 
-        img_info = self.img_infos[idx]
+        img_info = self.img_infos['images'][idx]
         ann_info = self.get_ann_info(idx)
         results = dict(img_info=img_info, ann_info=ann_info)
         self.pre_pipeline(results)

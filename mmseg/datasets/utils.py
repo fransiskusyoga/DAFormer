@@ -5,7 +5,8 @@ from mmcv.cnn import VGG
 from mmcv.runner.hooks import HOOKS, Hook
 
 from mmseg.datasets.builder import PIPELINES
-from mmseg.datasets.pipelines import LoadAnnotations, LoadImageFromFile
+from mmseg.datasets.pipelines import LoadAnnotationsSegUDA, LoadImageFromFileSegUDA
+from mmseg.datasets.pipelines import LoadAnnotationsPanUDA, LoadImageFromFilePanUDA
 from mmseg.models.dense_heads import GARPNHead, RPNHead
 from mmseg.models.roi_heads.mask_heads import FusedSemanticHead
 
@@ -82,8 +83,8 @@ def get_loading_pipeline(pipeline):
 
     Examples:
         >>> pipelines = [
-        ...    dict(type='LoadImageFromFile'),
-        ...    dict(type='LoadAnnotations', with_bbox=True),
+        ...    dict(type='LoadImageFromFileSegUDA'),
+        ...    dict(type='LoadAnnotationsSegUDA', with_bbox=True),
         ...    dict(type='Resize', img_scale=(1333, 800), keep_ratio=True),
         ...    dict(type='RandomFlip', flip_ratio=0.5),
         ...    dict(type='Normalize', **img_norm_cfg),
@@ -92,8 +93,8 @@ def get_loading_pipeline(pipeline):
         ...    dict(type='Collect', keys=['img', 'gt_bboxes', 'gt_labels'])
         ...    ]
         >>> expected_pipelines = [
-        ...    dict(type='LoadImageFromFile'),
-        ...    dict(type='LoadAnnotations', with_bbox=True)
+        ...    dict(type='LoadImageFromFileSegUDA'),
+        ...    dict(type='LoadAnnotationsSegUDA', with_bbox=True)
         ...    ]
         >>> assert expected_pipelines ==\
         ...        get_loading_pipeline(pipelines)
@@ -102,8 +103,10 @@ def get_loading_pipeline(pipeline):
     for cfg in pipeline:
         obj_cls = PIPELINES.get(cfg['type'])
         # TODO：use more elegant way to distinguish loading modules
-        if obj_cls is not None and obj_cls in (LoadImageFromFile,
-                                               LoadAnnotations):
+        if obj_cls is not None and obj_cls in (LoadImageFromFileSegUDA,
+                                               LoadAnnotationsSegUDA,
+                                               LoadImageFromFilePanUDA,
+                                               LoadAnnotationsPanUDA):
             loading_pipeline_cfg.append(cfg)
     assert len(loading_pipeline_cfg) == 2, \
         'The data pipeline in your config file must include ' \
