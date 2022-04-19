@@ -6,6 +6,7 @@ import os
 import os.path as osp
 from collections import OrderedDict
 from functools import reduce
+import copy
 
 import mmcv
 import numpy as np
@@ -113,44 +114,56 @@ class CustomDatasetPanUDA(Dataset):
                 self.ann_dir = osp.join(self.data_root, self.ann_dir)
             if not (self.split is None or osp.isabs(self.split)):
                 self.split = osp.join(self.data_root, self.split)
+            if not (self.ann_file is None or osp.isabs(self.ann_file)):
+                self.ann_file = osp.join(self.data_root, self.ann_file)
 
         # load annotations
         """ Structure of data in ann_file.json
         - annotation - list of dictionary
           - file_name
           - image_id
-          - segment_info - list of dictionary 
+          - segments_info - list of dictionary 
             - area
             - bbox 
             - categoty_id
             - id
             - is_crowd
-          example d:
+          example:
           {"file_name": "0000000.png", "image_id": "0000000", "segments_info": [ 
               {"area": 6022,"bbox": [935, 394, 220, 156], "category_id": 255,"id": 0, "iscrowd": 1},
               {"area": 159673,"bbox": [296, 0, 984, 316], "category_id": 9, "id": 1, "iscrowd": 1}
             ]
           }
         - images - list of dictionary 
-          - filename
+          - file_name
           - height
           - id 
           - width
           example :
           {'file_name': '0000000.png', 'height': 760, 'id': '0000000', 'width': 1280}
         """
-        self.img_infos = self.load_annotations(self.img_dir, self.ann_file)
+        self.img_infos = self.load_annotations( self.img_suffix, self.seg_map_suffix ,self.ann_file)
 
     def __len__(self):
         """Total number of samples of data."""
-        return len(self.img_infos['images'])
+        return len(self.img_infos)
 
-    def load_annotations(self, ann_file):
+    def load_annotations(self, img_suffix, seg_map_suffix, ann_file):
         """Load annotation from annotation file."""
-        return mmcv.load(ann_file)
+        raw_data = mmcv.load(ann_file)
+        img_infos = []
+        for i in range(len(raw_data['images'])):
+            img_name = raw_data['images'][i]['file_name']
+            img_info = dict(filename=img_name)
+            seg_map = img_name.replace(img_suffix, seg_map_suffix)
+            img_info['ann'] = dict(seg_map=seg_map, 
+                                   segments_info=raw_data['annotations'][i]['segments_info'])
+            img_infos.append(img_info)
+        
+        return img_infos
 
     def get_ann_info(self, idx):
-        return self.img_infos['annotations'][idx]
+        return copy.deepcopy(self.img_infos[idx]['ann'])
 
     def pre_pipeline(self, results):
         """Prepare results dict for pipeline."""
@@ -190,8 +203,8 @@ class CustomDatasetPanUDA(Dataset):
                 introduced by pipeline.
         """
 
-        img_info = self.img_infos['images'][idx]
-        ann_info = self.get_ann_info(idx)
+        img_info = copy.deepcopy(self.img_infos[idx])
+        ann_info = img_info['ann']
         results = dict(img_info=img_info, ann_info=ann_info)
         self.pre_pipeline(results)
         return self.pipeline(results)

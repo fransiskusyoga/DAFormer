@@ -124,7 +124,8 @@ class LoadAnnotationsPanUDA(object):
 
         if self.file_client is None:
             self.file_client = mmcv.FileClient(**self.file_client_args)
-
+        
+        # Vanila Segmentataion Map
         if results.get('seg_prefix', None) is not None:
             filename = osp.join(results['seg_prefix'],
                                 results['ann_info']['seg_map'])
@@ -144,8 +145,37 @@ class LoadAnnotationsPanUDA(object):
             gt_semantic_seg[gt_semantic_seg == 0] = 255
             gt_semantic_seg = gt_semantic_seg - 1
             gt_semantic_seg[gt_semantic_seg == 254] = 255
+        
+        # Panoptic segmentation map
+        filename = osp.join('data/synthia/GT/panoptic-labels-crowdth-0/synthia_panoptic/',
+                                results['ann_info']['seg_map'].replace('_labelTrainIds.png', '.png'))
+        img_bytes = self.file_client.get(filename)
+        gt_panoptic_seg = mmcv.imfrombytes(
+            img_bytes, flag='unchanged',
+            backend=self.imdecode_backend).squeeze().astype(np.uint8)
+        gt_panoptic_seg = gt_panoptic_seg * np.array([[[256*256,256,1]]])
+        gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)
+        
+        # Make bounding box into an np array
+        gt_bbox_locs = np.array([ x['bbox'] for x in results['ann_info']['segments_info']])
+        gt_bbox_locs[2] = gt_bbox_locs[0] + gt_bbox_locs[2]
+        gt_bbox_locs[3] = gt_bbox_locs[1] + gt_bbox_locs[3]
+        gt_bbox_category = np.array([x['category_id'] for x in results['ann_info']['segments_info']])
+        gt_bbox_iscrowd = np.array([x['id'] for x in results['ann_info']['segments_info']])
+        gt_bbox_id = np.array([x['iscrowd'] for x in results['ann_info']['segments_info']])
+
+        filename = osp.join(results['seg_prefix'],
+                            results['ann_info']['seg_map'])
         results['gt_semantic_seg'] = gt_semantic_seg
         results['seg_fields'].append('gt_semantic_seg')
+        results['gt_panoptic_seg'] = gt_panoptic_seg
+        results['seg_fields'].append('gt_panoptic_seg')
+        results['gt_bbox_locs'] = gt_bbox_locs
+        results['gt_bbox_category'] = gt_bbox_category
+        results['gt_bbox_iscrowd'] = gt_bbox_iscrowd
+        results['gt_bbox_id'] = gt_bbox_id
+        results['bbox_fields'].append('gt_bbox_locs')
+
         return results
 
     def __repr__(self):
