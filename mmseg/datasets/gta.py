@@ -1,10 +1,10 @@
 from . import CityscapesDataset
 from .builder import DATASETS
-from .custom import CustomDataset
+from .custom_seguda import CustomDatasetSegUDA
 
 
 @DATASETS.register_module()
-class GTADataset(CustomDataset):
+class GTADataset(CustomDatasetSegUDA):
     CLASSES = CityscapesDataset.CLASSES
     PALETTE = CityscapesDataset.PALETTE
 

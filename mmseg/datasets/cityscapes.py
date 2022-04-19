@@ -9,11 +9,11 @@ from mmcv.utils import print_log
 from PIL import Image
 
 from .builder import DATASETS
-from .custom import CustomDataset
+from .custom_seguda import CustomDatasetSegUDA
 
 
 @DATASETS.register_module()
-class CityscapesDataset(CustomDataset):
+class CityscapesDataset(CustomDatasetSegUDA):
     """Cityscapes dataset.
 
     The ``img_suffix`` is fixed to '_leftImg8bit.png' and ``seg_map_suffix`` is
