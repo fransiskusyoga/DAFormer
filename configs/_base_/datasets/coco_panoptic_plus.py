@@ -40,7 +40,7 @@ data = dict(
     val=dict( 
       
         segmentations_folder='./seg',
-        gt_json = data_root + '.annotations/panoptic_val2017.json',
+        gt_json = data_root + 'annotations/panoptic_val2017.json',
         gt_folder = data_root + 'annotations/panoptic_val2017',
         type=dataset_type,
         ann_file=data_root + 'annotations/instances_val2017.json',
