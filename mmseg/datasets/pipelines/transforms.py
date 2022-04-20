@@ -1066,11 +1066,6 @@ class RandomCropPanUDA(object):
         img_shape = img.shape
         results['img'] = img
         results['img_shape'] = img_shape
-
-        # crop semantic seg
-        for key in results.get('seg_fields', []):
-            results[key] = self.crop(results[key], crop_bbox)
-        
         
         # crop bounding box
         crop_y1, crop_y2, crop_x1, crop_x2 = crop_bbox
@@ -1084,6 +1079,11 @@ class RandomCropPanUDA(object):
         results['gt_bbox_category'] = results['gt_bbox_category'][area_non_zero]
         results['gt_bbox_iscrowd']  = results['gt_bbox_iscrowd'][area_non_zero]
         results['gt_bbox_id']       = results['gt_bbox_id'][area_non_zero]
+        
+        # crop semantic seg
+        for key in results.get('seg_fields', []):
+            results[key] = self.crop(results[key], crop_bbox)
+        results['gt_panoptic_seg'] = results['gt_panoptic_seg'][:,:,area_non_zero]
 
         return results
 

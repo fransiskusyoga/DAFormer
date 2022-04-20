@@ -303,6 +303,8 @@ class LoadAnnotationsPanUDA(object):
             backend=self.imdecode_backend).squeeze().astype(np.uint8)
         gt_panoptic_seg = gt_panoptic_seg * np.array([[[256*256,256,1]]])
         gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)
+        gt_panoptic_seg = [(gt_panoptic_seg==x['id'])[:,:,None] for x in results['ann_info']['segments_info']]
+        gt_panoptic_seg = np.concatenate(gt_panoptic_seg, axis=2)
         
         # Make bounding box into an np array
         gt_bbox_locs = np.array([ x['bbox'] for x in results['ann_info']['segments_info']])
