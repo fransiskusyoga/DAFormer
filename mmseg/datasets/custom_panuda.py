@@ -116,6 +116,8 @@ class CustomDatasetPanUDA(Dataset):
                 self.img_dir = osp.join(self.data_root, self.img_dir)
             if not (self.seg_map_dir is None or osp.isabs(self.seg_map_dir)):
                 self.seg_map_dir = osp.join(self.data_root, self.seg_map_dir)
+            if not (self.pan_map_dir is None or osp.isabs(self.pan_map_dir)):
+                self.pan_map_dir = osp.join(self.data_root, self.pan_map_dir)
             if not (self.split is None or osp.isabs(self.split)):
                 self.split = osp.join(self.data_root, self.split)
             if not (self.ann_file is None or osp.isabs(self.ann_file)):
@@ -146,24 +148,33 @@ class CustomDatasetPanUDA(Dataset):
           example :
           {'file_name': '0000000.png', 'height': 760, 'id': '0000000', 'width': 1280}
         """
-        self.img_infos = self.load_annotations( self.img_suffix, self.seg_map_suffix, self.pan_map_suffix ,self.ann_file)
+        self.img_infos = self.load_annotations( self.img_dir, self.img_suffix, self.seg_map_suffix, self.pan_map_suffix ,self.ann_file)
 
     def __len__(self):
         """Total number of samples of data."""
         return len(self.img_infos)
 
-    def load_annotations(self, img_suffix, seg_map_suffix, pan_map_suffix, ann_file):
+    def load_annotations(self, img_dir, img_suffix, seg_map_suffix, pan_map_suffix, ann_file):
         """Load annotation from annotation file."""
         raw_data = mmcv.load(ann_file)
         img_infos = []
-        for i in range(len(raw_data['images'])):
-            img_name = raw_data['images'][i]['file_name']
-            img_info = dict(filename=img_name)
-            seg_map = img_name.replace(img_suffix, seg_map_suffix)
-            pan_map = img_name.replace(img_suffix, pan_map_suffix)
+        for img in mmcv.scandir(img_dir, img_suffix, recursive=True):
+            img_info = dict(filename=img)
+            seg_map = img.replace(img_suffix, seg_map_suffix)
+            pan_map = img.replace(img_suffix, pan_map_suffix).split('/')[-1].split('\\')[-1]
+            segments_info = next((item['segments_info'] for item in raw_data['annotations'] if item["file_name"] == pan_map), None)
             img_info['ann'] = dict(seg_map=seg_map, pan_map=pan_map, 
-                                   segments_info=raw_data['annotations'][i]['segments_info'])
+                                   segments_info=segments_info)
             img_infos.append(img_info)
+
+        #for i in range(len(raw_data['images'])):
+        #    img_name = raw_data['images'][i]['file_name']
+        #    img_info = dict(filename=img_name)
+        #    seg_map = img_name.replace(img_suffix, seg_map_suffix)
+        #    pan_map = img_name.replace(img_suffix, pan_map_suffix)
+        #    img_info['ann'] = dict(seg_map=seg_map, pan_map=pan_map, 
+        #                           segments_info=raw_data['annotations'][i]['segments_info'])
+        #    img_infos.append(img_info)
         
         return img_infos
 
@@ -175,6 +186,7 @@ class CustomDatasetPanUDA(Dataset):
         results['seg_fields'] = []
         results['img_prefix'] = self.img_dir
         results['seg_prefix'] = self.seg_map_dir
+        results['pan_prefix'] = self.pan_map_dir
         results['bbox_fields'] = []
         results['mask_fields'] = []
         results['seg_fields'] = []

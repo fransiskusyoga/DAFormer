@@ -295,7 +295,7 @@ class LoadAnnotationsPanUDA(object):
             gt_semantic_seg[gt_semantic_seg == 254] = 255
         
         # Panoptic segmentation map
-        filename = osp.join(results['seg_prefix'],
+        filename = osp.join(results['pan_prefix'],
                                 results['ann_info']['pan_map'])
         img_bytes = self.file_client.get(filename)
         gt_panoptic_seg = mmcv.imfrombytes(

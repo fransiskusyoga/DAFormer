@@ -1,5 +1,6 @@
 from .builder import DATASETS, PIPELINES, build_dataloader, build_dataset
 from .cityscapes import CityscapesDataset
+from .cityscapes_panoptic import CityscapesDataset_panoptic
 from .custom_seguda import CustomDatasetSegUDA
 from .custom_panuda import CustomDatasetPanUDA
 from .custom_pan import CustomDatasetPan
@@ -25,6 +26,7 @@ __all__ = [
     'build_dataset',
     'PIPELINES',
     'CityscapesDataset',
+    'CityscapesDataset_panoptic',
     'GTADataset',
     'SynthiaDataset',
     'SynthiaDataset_panoptic',
