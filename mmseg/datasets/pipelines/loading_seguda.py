@@ -9,7 +9,7 @@ from ..builder import PIPELINES
 
 
 @PIPELINES.register_module()
-class LoadImageFromFileSegUDA(object):
+class LoadImageFromFile(object):
     """Load an image from file.
 
     Required keys are "img_prefix" and "img_info" (a dict that must contain the
@@ -89,7 +89,7 @@ class LoadImageFromFileSegUDA(object):
 
 
 @PIPELINES.register_module()
-class LoadAnnotationsSegUDA(object):
+class LoadAnnotations(object):
     """Load annotations for semantic segmentation.
 
     Args:

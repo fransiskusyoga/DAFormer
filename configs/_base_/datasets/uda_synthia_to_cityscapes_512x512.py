@@ -5,8 +5,8 @@ img_norm_cfg = dict(
     mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
 crop_size = (512, 512)
 synthia_train_pipeline = [
-    dict(type='LoadImageFromFileSegUDA'),
-    dict(type='LoadAnnotationsSegUDA'),
+    dict(type='LoadImageFromFile'),
+    dict(type='LoadAnnotations'),
     dict(type='Resize', img_scale=(1280, 760)),
     dict(type='RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
     dict(type='RandomFlip', prob=0.5),
@@ -17,8 +17,8 @@ synthia_train_pipeline = [
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
 cityscapes_train_pipeline = [
-    dict(type='LoadImageFromFileSegUDA'),
-    dict(type='LoadAnnotationsSegUDA'),
+    dict(type='LoadImageFromFile'),
+    dict(type='LoadAnnotations'),
     dict(type='Resize', img_scale=(1024, 512)),
     dict(type='RandomCrop', crop_size=crop_size),
     dict(type='RandomFlip', prob=0.5),
@@ -29,7 +29,7 @@ cityscapes_train_pipeline = [
     dict(type='Collect', keys=['img', 'gt_semantic_seg']),
 ]
 test_pipeline = [
-    dict(type='LoadImageFromFileSegUDA'),
+    dict(type='LoadImageFromFile'),
     dict(
         type='MultiScaleFlipAug',
         img_scale=(1024, 512),
