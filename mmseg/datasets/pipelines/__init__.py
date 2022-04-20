@@ -1,8 +1,7 @@
 from .compose import Compose
 from .formating import (Collect, ImageToTensor, ToDataContainer, ToTensor,
                         Transpose, to_tensor)
-from .loading_seguda import LoadAnnotations, LoadImageFromFile
-from .loading_panuda import LoadAnnotationsPanUDA, LoadImageFromFilePanUDA
+from .loading import LoadAnnotations, LoadImageFromFile, LoadAnnotationsPanUDA, LoadImageFromFilePanUDA
 from .test_time_aug import MultiScaleFlipAug
 from .transforms import (CLAHE, AdjustGamma, Normalize, Pad,
                          PhotoMetricDistortion, RandomCrop, RandomFlip,
