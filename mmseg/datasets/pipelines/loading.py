@@ -306,18 +306,19 @@ class LoadAnnotationsPanUDA(object):
         
         # Make bounding box into an np array
         gt_bbox_locs = np.array([ x['bbox'] for x in results['ann_info']['segments_info']])
-        gt_bbox_locs[2] = gt_bbox_locs[0] + gt_bbox_locs[2]
-        gt_bbox_locs[3] = gt_bbox_locs[1] + gt_bbox_locs[3]
+        gt_bbox_locs[:,2] = gt_bbox_locs[:,0] + gt_bbox_locs[:,2]
+        gt_bbox_locs[:,3] = gt_bbox_locs[:,1] + gt_bbox_locs[:,3]
         gt_bbox_category = np.array([x['category_id'] for x in results['ann_info']['segments_info']])
-        gt_bbox_iscrowd = np.array([x['id'] for x in results['ann_info']['segments_info']])
-        gt_bbox_id = np.array([x['iscrowd'] for x in results['ann_info']['segments_info']])
+        gt_bbox_iscrowd = np.array([x['iscrowd'] for x in results['ann_info']['segments_info']])
+        gt_bbox_id = np.array([x['id'] for x in results['ann_info']['segments_info']])
 
-        filename = osp.join(results['seg_prefix'],
-                            results['ann_info']['seg_map'])
+        # Segmentation
         results['gt_semantic_seg'] = gt_semantic_seg
         results['seg_fields'].append('gt_semantic_seg')
+        # Panoptic
         results['gt_panoptic_seg'] = gt_panoptic_seg
         results['seg_fields'].append('gt_panoptic_seg')
+        # bounding box
         results['gt_bbox_locs'] = gt_bbox_locs
         results['gt_bbox_category'] = gt_bbox_category
         results['gt_bbox_iscrowd'] = gt_bbox_iscrowd
