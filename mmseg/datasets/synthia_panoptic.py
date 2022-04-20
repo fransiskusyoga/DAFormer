@@ -17,6 +17,7 @@ class SynthiaDataset_panoptic(CustomDatasetPanUDA):
         super(SynthiaDataset_panoptic, self).__init__(
             img_suffix='.png',
             seg_map_suffix='_labelTrainIds.png',
+            pan_map_suffix='.png',
             split=None,
             **kwargs)
 

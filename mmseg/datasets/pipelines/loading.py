@@ -295,8 +295,8 @@ class LoadAnnotationsPanUDA(object):
             gt_semantic_seg[gt_semantic_seg == 254] = 255
         
         # Panoptic segmentation map
-        filename = osp.join('data/synthia/GT/panoptic-labels-crowdth-0/synthia_panoptic/',
-                                results['ann_info']['seg_map'].replace('_labelTrainIds.png', '.png'))
+        filename = osp.join(results['seg_prefix'],
+                                results['ann_info']['pan_map'])
         img_bytes = self.file_client.get(filename)
         gt_panoptic_seg = mmcv.imfrombytes(
             img_bytes, flag='unchanged',

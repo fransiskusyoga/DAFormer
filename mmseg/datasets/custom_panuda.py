@@ -35,7 +35,7 @@ class CustomDatasetPanUDA(Dataset):
         │   │   │   │   ├── yyy{img_suffix}
         │   │   │   │   ├── zzz{img_suffix}
         │   │   │   ├── val
-        │   │   ├── ann_dir
+        │   │   ├── seg_map_dir
         │   │   │   ├── train
         │   │   │   │   ├── xxx{seg_map_suffix}
         │   │   │   │   ├── yyy{seg_map_suffix}
@@ -46,7 +46,7 @@ class CustomDatasetPanUDA(Dataset):
     except suffix. A valid img/gt_semantic_seg filename pair should be like
     ``xxx{img_suffix}`` and ``xxx{seg_map_suffix}`` (extension is also included
     in the suffix). If split is given, then ``xxx`` is specified in txt file.
-    Otherwise, all files in ``img_dir/``and ``ann_dir`` will be loaded.
+    Otherwise, all files in ``img_dir/``and ``seg_map_dir`` will be loaded.
     Please refer to ``docs/tutorials/new_dataset.md`` for more details.
 
 
@@ -54,12 +54,12 @@ class CustomDatasetPanUDA(Dataset):
         pipeline (list[dict]): Processing pipeline
         img_dir (str): Path to image directory
         img_suffix (str): Suffix of images. Default: '.jpg'
-        ann_dir (str, optional): Path to annotation directory. Default: None
+        seg_map_dir (str, optional): Path to annotation directory. Default: None
         seg_map_suffix (str): Suffix of segmentation maps. Default: '.png'
         split (str, optional): Split txt file. If split is specified, only
             file with suffix in the splits will be loaded. Otherwise, all
-            images in img_dir/ann_dir will be loaded. Default: None
-        data_root (str, optional): Data root for img_dir/ann_dir. Default:
+            images in img_dir/seg_map_dir will be loaded. Default: None
+        data_root (str, optional): Data root for img_dir/seg_map_dir. Default:
             None.
         test_mode (bool): If test_mode=True, gt wouldn't be loaded.
         ignore_index (int): The label index to be ignored. Default: 255
@@ -81,9 +81,11 @@ class CustomDatasetPanUDA(Dataset):
                  pipeline,
                  img_dir,
                  img_suffix='.jpg',
-                 ann_dir=None,
-                 ann_file=None,
+                 seg_map_dir=None,
                  seg_map_suffix='.png',
+                 pan_map_dir=None,
+                 pan_map_suffix='.png',
+                 ann_file=None,
                  split=None,
                  data_root=None,
                  test_mode=False,
@@ -94,9 +96,11 @@ class CustomDatasetPanUDA(Dataset):
         self.pipeline = Compose(pipeline)
         self.img_dir = img_dir
         self.img_suffix = img_suffix
-        self.ann_dir = ann_dir
-        self.ann_file = ann_file
+        self.seg_map_dir = seg_map_dir
         self.seg_map_suffix = seg_map_suffix
+        self.pan_map_dir = pan_map_dir
+        self.pan_map_suffix = pan_map_suffix
+        self.ann_file = ann_file
         self.split = split # not supported yet
         self.data_root = data_root
         self.test_mode = test_mode
@@ -110,8 +114,8 @@ class CustomDatasetPanUDA(Dataset):
         if self.data_root is not None:
             if not osp.isabs(self.img_dir):
                 self.img_dir = osp.join(self.data_root, self.img_dir)
-            if not (self.ann_dir is None or osp.isabs(self.ann_dir)):
-                self.ann_dir = osp.join(self.data_root, self.ann_dir)
+            if not (self.seg_map_dir is None or osp.isabs(self.seg_map_dir)):
+                self.seg_map_dir = osp.join(self.data_root, self.seg_map_dir)
             if not (self.split is None or osp.isabs(self.split)):
                 self.split = osp.join(self.data_root, self.split)
             if not (self.ann_file is None or osp.isabs(self.ann_file)):
@@ -142,13 +146,13 @@ class CustomDatasetPanUDA(Dataset):
           example :
           {'file_name': '0000000.png', 'height': 760, 'id': '0000000', 'width': 1280}
         """
-        self.img_infos = self.load_annotations( self.img_suffix, self.seg_map_suffix ,self.ann_file)
+        self.img_infos = self.load_annotations( self.img_suffix, self.seg_map_suffix, self.pan_map_suffix ,self.ann_file)
 
     def __len__(self):
         """Total number of samples of data."""
         return len(self.img_infos)
 
-    def load_annotations(self, img_suffix, seg_map_suffix, ann_file):
+    def load_annotations(self, img_suffix, seg_map_suffix, pan_map_suffix, ann_file):
         """Load annotation from annotation file."""
         raw_data = mmcv.load(ann_file)
         img_infos = []
@@ -156,7 +160,8 @@ class CustomDatasetPanUDA(Dataset):
             img_name = raw_data['images'][i]['file_name']
             img_info = dict(filename=img_name)
             seg_map = img_name.replace(img_suffix, seg_map_suffix)
-            img_info['ann'] = dict(seg_map=seg_map, 
+            pan_map = img_name.replace(img_suffix, pan_map_suffix)
+            img_info['ann'] = dict(seg_map=seg_map, pan_map=pan_map, 
                                    segments_info=raw_data['annotations'][i]['segments_info'])
             img_infos.append(img_info)
         
@@ -169,7 +174,7 @@ class CustomDatasetPanUDA(Dataset):
         """Prepare results dict for pipeline."""
         results['seg_fields'] = []
         results['img_prefix'] = self.img_dir
-        results['seg_prefix'] = self.ann_dir
+        results['seg_prefix'] = self.seg_map_dir
         results['bbox_fields'] = []
         results['mask_fields'] = []
         results['seg_fields'] = []
@@ -232,7 +237,7 @@ class CustomDatasetPanUDA(Dataset):
         """Get ground truth segmentation maps for evaluation."""
         gt_seg_maps = []
         for img_info in self.img_infos:
-            seg_map = osp.join(self.ann_dir, img_info['ann']['seg_map'])
+            seg_map = osp.join(self.seg_map_dir, img_info['ann']['seg_map'])
             if efficient_test:
                 gt_seg_map = seg_map
             else:
