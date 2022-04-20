@@ -176,6 +176,9 @@ class CustomDatasetPanUDA(Dataset):
         #                           segments_info=raw_data['annotations'][i]['segments_info'])
         #    img_infos.append(img_info)
         
+        print_log(
+            f'Loaded {len(img_infos)} images from {img_dir}',
+            logger=get_root_logger())
         return img_infos
 
     def get_ann_info(self, idx):
