@@ -1085,7 +1085,6 @@ class RandomCropPanUDA(object):
         # crop semantic seg
         for key in results.get('seg_fields', []):
             results[key] = self.crop(results[key], crop_bbox)
-        results['gt_panoptic_seg'] = results['gt_panoptic_seg'][:,:,area_non_zero]
 
         return results
 

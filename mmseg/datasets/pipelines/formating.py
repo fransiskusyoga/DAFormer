@@ -210,7 +210,13 @@ class DefaultFormatBundle(object):
                 continue
             results[key] = DC(to_tensor(results[key]))
         if 'gt_panoptic_seg' in results:
-            results['gt_panoptic_seg'] = DC(results['gt_panoptic_seg'], cpu_only=True)
+            #splitting image to N chanels, 1 for every instance
+            gt_panoptic_seg = results['gt_panoptic_seg']
+            gt_bbox_id =  results['gt_bbox_id']
+            if len(gt_panoptic_seg.shape) == 2:
+                gt_panoptic_seg = gt_panoptic_seg[:,:,None]
+            gt_panoptic_seg = np.equal(gt_panoptic_seg, gt_bbox_id).astype(np.uint8)
+            results['gt_panoptic_seg'] = DC(gt_panoptic_seg, cpu_only=True)
         if 'gt_semantic_seg' in results:
             # convert to long
             results['gt_semantic_seg'] = DC(
