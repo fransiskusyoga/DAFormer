@@ -195,7 +195,7 @@ def train_segmentor_panoptic(model,
 
 
 
-def train_segmentor(model,
+def train_segmentor_uda(model,
                     dataset,
                     cfg,
                     distributed=False,

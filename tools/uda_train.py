@@ -17,7 +17,7 @@ from mmcv.runner import init_dist
 from mmcv.utils import Config, DictAction, get_git_hash
 
 from mmseg import __version__
-from mmseg.apis import set_random_seed, train_segmentor
+from mmseg.apis import set_random_seed, train_segmentor_uda
 from mmseg.datasets import build_dataset
 from mmseg.models.builder import build_uda_segmentor
 from mmseg.utils import collect_env, get_root_logger
@@ -163,7 +163,7 @@ def main(args):
     model.CLASSES = datasets[0].CLASSES
     # passing checkpoint meta for saving best checkpoint
     meta.update(cfg.checkpoint_config.meta)
-    train_segmentor(
+    train_segmentor_uda(
         model,
         datasets,
         cfg,
