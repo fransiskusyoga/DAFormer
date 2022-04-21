@@ -162,7 +162,16 @@ class CustomDatasetPanUDA(Dataset):
             img_info = dict(filename=img)
             seg_map = img.replace(img_suffix, seg_map_suffix)
             pan_map = img.replace(img_suffix, pan_map_suffix).split('/')[-1].split('\\')[-1]
+            
             segments_info = next((item['segments_info'] for item in raw_data['annotations'] if item["file_name"] == pan_map), None)
+            bbox_category = np.array([x['category_id'] for x in segments_info])
+            bbox_iscrowd = np.array([x['iscrowd'] for x in segments_info])
+            bbox_id = np.array([x['id'] for x in segments_info])
+            bbox_locs = np.array([ x['bbox'] for x in segments_info])
+            bbox_locs[:,2] = bbox_locs[:,0] + bbox_locs[:,2]
+            bbox_locs[:,3] = bbox_locs[:,1] + bbox_locs[:,3]
+            segments_info = dict(bbox_locs=bbox_locs, bbox_category=bbox_category, bbox_iscrowd=bbox_iscrowd, bbox_id=bbox_id)
+
             img_info['ann'] = dict(seg_map=seg_map, pan_map=pan_map, 
                                    segments_info=segments_info)
             img_infos.append(img_info)
