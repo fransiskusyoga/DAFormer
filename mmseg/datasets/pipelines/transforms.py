@@ -1068,13 +1068,15 @@ class RandomCropPanUDA(object):
         results['img_shape'] = img_shape
         
         # crop bounding box
+        # bbox (x,y), crop_size(h,w)
         crop_y1, crop_y2, crop_x1, crop_x2 = crop_bbox
-        start_point = np.array([crop_y1, crop_x1, crop_y1, crop_x1],dtype=np.float32)
+        start_point = np.array([crop_x1, crop_y1, crop_x1, crop_y1],dtype=np.float32)
         bboxes = results['gt_bbox_locs'] - start_point
         bboxes[:, 0::2] = np.clip(bboxes[:, 0::2], 0, self.crop_size[1])
         bboxes[:, 1::2] = np.clip(bboxes[:, 1::2], 0, self.crop_size[0])
 
         area_non_zero = (bboxes[:,0]<bboxes[:,2]) & (bboxes[:,1]<bboxes[:,3])
+        assert np.sum(area_non_zero) != 0
         results['gt_bbox_locs']     = bboxes[area_non_zero]
         results['gt_bbox_category'] = results['gt_bbox_category'][area_non_zero]
         results['gt_bbox_iscrowd']  = results['gt_bbox_iscrowd'][area_non_zero]

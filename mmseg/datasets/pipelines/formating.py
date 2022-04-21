@@ -205,6 +205,12 @@ class DefaultFormatBundle(object):
                 img = np.expand_dims(img, -1)
             img = np.ascontiguousarray(img.transpose(2, 0, 1))
             results['img'] = DC(to_tensor(img), stack=True)
+        for key in ['gt_bbox_locs', 'gt_bbox_category', 'gt_bbox_iscrowd', 'gt_bbox_id']:
+            if key not in results:
+                continue
+            results[key] = DC(to_tensor(results[key]))
+        if 'gt_panoptic_seg' in results:
+            results['gt_panoptic_seg'] = DC(results['gt_panoptic_seg'], cpu_only=True)
         if 'gt_semantic_seg' in results:
             # convert to long
             results['gt_semantic_seg'] = DC(

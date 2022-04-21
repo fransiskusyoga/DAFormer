@@ -294,6 +294,14 @@ class LoadAnnotationsPanUDA(object):
             gt_semantic_seg = gt_semantic_seg - 1
             gt_semantic_seg[gt_semantic_seg == 254] = 255
         
+        # Make bounding box into an np array
+        gt_bbox_category = np.array([x['category_id'] for x in results['ann_info']['segments_info']])
+        gt_bbox_iscrowd = np.array([x['iscrowd'] for x in results['ann_info']['segments_info']])
+        gt_bbox_id = np.array([x['id'] for x in results['ann_info']['segments_info']])
+        gt_bbox_locs = np.array([ x['bbox'] for x in results['ann_info']['segments_info']])
+        gt_bbox_locs[:,2] = gt_bbox_locs[:,0] + gt_bbox_locs[:,2]
+        gt_bbox_locs[:,3] = gt_bbox_locs[:,1] + gt_bbox_locs[:,3]
+
         # Panoptic segmentation map
         filename = osp.join(results['pan_prefix'],
                                 results['ann_info']['pan_map'])
@@ -302,18 +310,10 @@ class LoadAnnotationsPanUDA(object):
             img_bytes, flag='unchanged',
             backend=self.imdecode_backend).squeeze().astype(np.uint8)
         gt_panoptic_seg = gt_panoptic_seg * np.array([[[256*256,256,1]]])
-        gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)
-        gt_panoptic_seg = [(gt_panoptic_seg==x['id'])[:,:,None] for x in results['ann_info']['segments_info']]
-        gt_panoptic_seg = np.concatenate(gt_panoptic_seg, axis=2).astype(np.int)
+        gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)[:,:,None]
+        gt_panoptic_seg = np.repeat(gt_panoptic_seg, len(gt_bbox_id), axis=2)
+        gt_panoptic_seg = (gt_panoptic_seg==gt_bbox_id).astype(np.uint8)
         
-        # Make bounding box into an np array
-        gt_bbox_locs = np.array([ x['bbox'] for x in results['ann_info']['segments_info']])
-        gt_bbox_locs[:,2] = gt_bbox_locs[:,0] + gt_bbox_locs[:,2]
-        gt_bbox_locs[:,3] = gt_bbox_locs[:,1] + gt_bbox_locs[:,3]
-        gt_bbox_category = np.array([x['category_id'] for x in results['ann_info']['segments_info']])
-        gt_bbox_iscrowd = np.array([x['iscrowd'] for x in results['ann_info']['segments_info']])
-        gt_bbox_id = np.array([x['id'] for x in results['ann_info']['segments_info']])
-
         # Segmentation
         results['gt_semantic_seg'] = gt_semantic_seg
         results['seg_fields'].append('gt_semantic_seg')
