@@ -288,8 +288,7 @@ class PanformerHead(DETRHeadv2):
         gt_labels_list,
         gt_masks_list=None,
         img_metas=None,
-        gt_bboxes_ignore=None,
-    ):
+        gt_bboxes_ignore=None):
         """"Loss function.
 
         Args:
@@ -1073,8 +1072,7 @@ class PanformerHead(DETRHeadv2):
         args_tuple,
         reference,
         img_metas,
-        rescale=False,
-    ):
+        rescale=False):
         """
         """
         cls_scores = all_cls_scores[-1]

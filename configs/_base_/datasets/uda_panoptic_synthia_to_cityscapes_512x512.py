@@ -14,7 +14,7 @@ synthia_train_pipeline = [
     dict(type='NormalizePanUDA', **img_norm_cfg),
     dict(type='PadPanUDA', size=crop_size, pad_val=0, seg_pad_val=255),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg']),
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_panoptic_seg', 'gt_bbox_locs', 'gt_bbox_category', 'gt_bbox_iscrowd']),
 ]
 cityscapes_train_pipeline = [
     dict(type='LoadImageFromFilePanUDA'),
@@ -26,7 +26,7 @@ cityscapes_train_pipeline = [
     dict(type='NormalizePanUDA', **img_norm_cfg),
     dict(type='PadPanUDA', size=crop_size, pad_val=0, seg_pad_val=255),
     dict(type='DefaultFormatBundle'),
-    dict(type='Collect', keys=['img', 'gt_semantic_seg']),
+    dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_panoptic_seg', 'gt_bbox_locs', 'gt_bbox_category', 'gt_bbox_iscrowd']),
 ]
 test_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -47,7 +47,7 @@ test_pipeline = [
 ]
 data = dict(
     samples_per_gpu=2,
-    workers_per_gpu=4,
+    workers_per_gpu=3,
     train=dict(
         type='UDADataset',
         source=dict(

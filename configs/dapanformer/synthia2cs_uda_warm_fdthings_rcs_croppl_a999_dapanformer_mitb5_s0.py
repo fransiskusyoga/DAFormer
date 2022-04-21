@@ -1,7 +1,7 @@
 _base_ = [
     '../_base_/default_runtime.py',
     # DAFormer Network Architecture
-    '../_base_/models/daformer_sepaspp_mitb5.py',
+    '../_base_/models/dapanformer_sepaspp_mitb5.py',
     # Synthia->Cityscapes Data Loading
     '../_base_/datasets/uda_panoptic_synthia_to_cityscapes_512x512.py',
     # Basic UDA Self-Training

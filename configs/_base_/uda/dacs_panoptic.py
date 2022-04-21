@@ -1,6 +1,6 @@
 # Baseline UDA
 uda = dict(
-    type='DACS',
+    type='DACSPanoptic',
     alpha=0.99,
     pseudo_threshold=0.968,
     pseudo_weight_ignore_top=0,
