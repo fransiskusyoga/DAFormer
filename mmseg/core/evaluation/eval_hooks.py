@@ -31,8 +31,8 @@ class EvalHook_seg(_EvalHook):
         if not self._should_evaluate(runner):
             return
 
-        from mmseg.apis import single_gpu_test_seg
-        results = single_gpu_test_seg(
+        from mmseg.apis import single_gpu_test_uda
+        results = single_gpu_test_uda(
             runner.model,
             self.dataloader,
             show=False,

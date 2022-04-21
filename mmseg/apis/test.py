@@ -256,7 +256,7 @@ def multi_gpu_test_pan(model,
     time.sleep(1) 
     return results
 
-def single_gpu_test_seg(model,
+def single_gpu_test_uda(model,
                         data_loader,
                         show=False,
                         out_dir=None,
@@ -330,7 +330,7 @@ def single_gpu_test_seg(model,
     return results
 
 
-def multi_gpu_test_seg(model,
+def multi_gpu_test_uda(model,
                    data_loader,
                    tmpdir=None,
                    gpu_collect=False,
