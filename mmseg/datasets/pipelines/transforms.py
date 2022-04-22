@@ -1413,3 +1413,30 @@ class PhotoMetricDistortion(object):
                      f'{self.saturation_upper}), '
                      f'hue_delta={self.hue_delta})')
         return repr_str
+
+
+@PIPELINES.register_module()
+class SplitPanopticMaskPanUDA(object):
+    """Rescale semantic segmentation maps.
+
+    Args:
+        scale_factor (float): The scale factor of the final output.
+    """
+
+    def __init__(self, generate_semantic=True):
+        self.generate_semantic = generate_semantic
+
+    def __call__(self, results):
+        #splitting image to N chanels, 1 for every instance
+        gt_panoptic_seg = results['gt_panoptic_seg']
+        if len(gt_panoptic_seg.shape) == 2:
+            gt_panoptic_seg = gt_panoptic_seg[:,:,None]
+        gt_panoptic_seg = np.equal(gt_panoptic_seg, results['gt_bbox_id']).astype(np.uint8)
+        results['gt_panoptic_seg'] = gt_panoptic_seg
+        if self.generate_semantic: 
+            results['gt_semantic_seg'] = np.sum(gt_panoptic_seg * results['gt_bbox_category'], axis=2)
+        
+        return results
+
+    def __repr__(self):
+        return self.__class__.__name__ + f'(scale_factor={self.scale_factor})'

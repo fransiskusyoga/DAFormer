@@ -13,6 +13,7 @@ synthia_train_pipeline = [
     # dict(type='PhotoMetricDistortion'),  # is applied later in dacs.py
     dict(type='NormalizePanUDA', **img_norm_cfg),
     dict(type='PadPanUDA', size=crop_size, pad_val=0, seg_pad_val=255),
+    dict(type='SplitPanopticMaskPanUDA', generate_semantic=True),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_panoptic_seg', 'gt_bbox_locs', 'gt_bbox_category', 'gt_bbox_iscrowd']),
 ]
@@ -25,6 +26,7 @@ cityscapes_train_pipeline = [
     # dict(type='PhotoMetricDistortion'),  # is applied later in dacs.py
     dict(type='NormalizePanUDA', **img_norm_cfg),
     dict(type='PadPanUDA', size=crop_size, pad_val=0, seg_pad_val=255),
+    dict(type='SplitPanopticMaskPanUDA', generate_semantic=True),
     dict(type='DefaultFormatBundle'),
     dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_panoptic_seg', 'gt_bbox_locs', 'gt_bbox_category', 'gt_bbox_iscrowd']),
 ]

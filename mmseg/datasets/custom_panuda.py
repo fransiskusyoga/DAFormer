@@ -22,7 +22,7 @@ from .pipelines import Compose
 
 @DATASETS.register_module()
 class CustomDatasetPanUDA(Dataset):
-    """ **The comment id outdated**
+    """ **The comment is outdated**
     Custom dataset for semantic segmentation. An example of file structure
     is as followed.
 

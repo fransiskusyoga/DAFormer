@@ -255,7 +255,7 @@ class LoadAnnotationsPanUDA(object):
                  reduce_zero_label=False,
                  file_client_args=dict(backend='disk'),
                  imdecode_backend='pillow',
-                 flipodercategory=True,
+                 flipodercategory=False, #this might me dangerous if you turn it on
                  num_classes=16):
         self.reduce_zero_label = reduce_zero_label
         self.file_client_args = file_client_args.copy()
@@ -320,14 +320,18 @@ class LoadAnnotationsPanUDA(object):
             backend=self.imdecode_backend).squeeze().astype(np.uint8)
         gt_panoptic_seg = gt_panoptic_seg * np.array([[[256*256,256,1]]])
         gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)[:,:,None]
-
-        # genreate semantic map
-        gt_semantic_seg = np.sum(
-             np.equal(gt_panoptic_seg, gt_bbox_id) * gt_bbox_category, axis=2)
         
-        # Semantic
-        results['gt_semantic_seg'] = gt_semantic_seg
-        results['seg_fields'].append('gt_semantic_seg')
+        # # Semantic segmentation map
+        # if results.get('seg_prefix', None) is not None:
+        #     filename = osp.join(results['seg_prefix'],
+        #                         results['ann_info']['seg_map'])
+        # else:
+        #     filename = results['ann_info']['seg_map']
+        # img_bytes = self.file_client.get(filename)
+        # gt_semantic_seg = mmcv.imfrombytes(
+        #     img_bytes, flag='unchanged',
+        #     backend=self.imdecode_backend).squeeze().astype(np.uint8)
+
         # Panoptic
         results['gt_panoptic_seg'] = gt_panoptic_seg
         results['seg_fields'].append('gt_panoptic_seg')
