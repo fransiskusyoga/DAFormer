@@ -77,9 +77,12 @@ class UDADataset(object):
                 assert len(self.samples_with_class[c]) > 0
             self.file_to_idx = {}
             for i, dic in enumerate(self.source.img_infos):
-                file = dic['ann']['seg_map']
-                if isinstance(self.source, CityscapesDataset):
-                    file = file.split('/')[-1]
+                file = dic['ann']['pan_map']
+                # using replace is not elgant solution
+                if "_panoptic.png" in file:
+                    file = file.replace("_panoptic.png", "_labelTrainIds.png")
+                else:
+                    file = file.replace(".png", "_labelTrainIds.png")
                 self.file_to_idx[file] = i
 
     def get_rare_class_sample(self):

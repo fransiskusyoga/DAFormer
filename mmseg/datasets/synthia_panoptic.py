@@ -16,7 +16,6 @@ class SynthiaDataset_panoptic(CustomDatasetPanUDA):
             kwargs.pop('rare_class_sampling')
         super(SynthiaDataset_panoptic, self).__init__(
             img_suffix='.png',
-            seg_map_suffix='_labelTrainIds.png',
             pan_map_suffix='.png',
             split=None,
             **kwargs)

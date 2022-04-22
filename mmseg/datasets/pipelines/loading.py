@@ -254,11 +254,15 @@ class LoadAnnotationsPanUDA(object):
     def __init__(self,
                  reduce_zero_label=False,
                  file_client_args=dict(backend='disk'),
-                 imdecode_backend='pillow'):
+                 imdecode_backend='pillow',
+                 flipodercategory=True,
+                 num_classes=16):
         self.reduce_zero_label = reduce_zero_label
         self.file_client_args = file_client_args.copy()
         self.file_client = None
         self.imdecode_backend = imdecode_backend
+        self.flipodercategory = flipodercategory
+        self.num_classes = num_classes
 
     def __call__(self, results):
         """Call function to load multiple types annotations.
@@ -273,36 +277,43 @@ class LoadAnnotationsPanUDA(object):
         if self.file_client is None:
             self.file_client = mmcv.FileClient(**self.file_client_args)
         
-        # Vanila Segmentataion Map
-        if results.get('seg_prefix', None) is not None:
-            filename = osp.join(results['seg_prefix'],
-                                results['ann_info']['seg_map'])
-        else:
-            filename = results['ann_info']['seg_map']
-        img_bytes = self.file_client.get(filename)
-        gt_semantic_seg = mmcv.imfrombytes(
-            img_bytes, flag='unchanged',
-            backend=self.imdecode_backend).squeeze().astype(np.uint8)
-        # modify if custom classes
-        if results.get('label_map', None) is not None:
-            for old_id, new_id in results['label_map'].items():
-                gt_semantic_seg[gt_semantic_seg == old_id] = new_id
-        # reduce zero_label
-        if self.reduce_zero_label:
-            # avoid using underflow conversion
-            gt_semantic_seg[gt_semantic_seg == 0] = 255
-            gt_semantic_seg = gt_semantic_seg - 1
-            gt_semantic_seg[gt_semantic_seg == 254] = 255
-        
         # Make bounding box into an np array
         gt_bbox_category = results['ann_info']['segments_info']['bbox_category']
         gt_bbox_iscrowd = results['ann_info']['segments_info']['bbox_iscrowd']
         gt_bbox_id = results['ann_info']['segments_info']['bbox_id']
         gt_bbox_locs = results['ann_info']['segments_info']['bbox_locs']
+        # may be important to implement these 2
+        # # modify if custom classes
+        # if results.get('label_map', None) is not None:
+        #     for old_id, new_id in results['label_map'].items():
+        #         gt_semantic_seg[gt_semantic_seg == old_id] = new_id
+        # # reduce zero_label
+        # if self.reduce_zero_label:
+        #     # avoid using underflow conversion
+        #     gt_semantic_seg[gt_semantic_seg == 0] = 255
+        #     gt_semantic_seg = gt_semantic_seg - 1
+        #     gt_semantic_seg[gt_semantic_seg == 254] = 255
+        """Flip category id
+        This function is primarily flip the ordering of the category iden in the
+        panoptic label. Mimicking COCO you need to makesure that thing has lower
+        category Id. No stuff id should have higher index id. This function is 
+        only flip category id for panoptic label. Segmentation might have problem.
+        If you do it otherwise the decoder may not work properly.
+        
+        - num_classes = the number of class. If there are any class is not between 
+        0 and (num_classes-1) it will be assigned to 255
+        """
+        if self.flipodercategory:
+            gt_bbox_category = self.num_classes - 1 - gt_bbox_category
+            outside_range = (gt_bbox_category<0) & (gt_bbox_category>=self.num_classes)
+            gt_bbox_category[outside_range] = 255
 
         # Panoptic segmentation map
-        filename = osp.join(results['pan_prefix'],
+        if results.get('pan_prefix', None) is not None:
+            filename = osp.join(results['pan_prefix'],
                                 results['ann_info']['pan_map'])
+        else:
+            filename = results['ann_info']['pan_map']
         img_bytes = self.file_client.get(filename)
         gt_panoptic_seg = mmcv.imfrombytes(
             img_bytes, flag='unchanged',
@@ -310,7 +321,11 @@ class LoadAnnotationsPanUDA(object):
         gt_panoptic_seg = gt_panoptic_seg * np.array([[[256*256,256,1]]])
         gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)[:,:,None]
 
-        # Segmentation
+        # genreate semantic map
+        gt_semantic_seg = np.sum(
+             np.equal(gt_panoptic_seg, gt_bbox_id) * gt_bbox_category, axis=2)
+        
+        # Semantic
         results['gt_semantic_seg'] = gt_semantic_seg
         results['seg_fields'].append('gt_semantic_seg')
         # Panoptic

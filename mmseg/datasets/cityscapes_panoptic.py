@@ -34,7 +34,6 @@ class CityscapesDataset_panoptic(CustomDatasetPanUDA):
     def __init__(self, **kwargs):
         super(CityscapesDataset_panoptic, self).__init__(
             img_suffix='_leftImg8bit.png',
-            seg_map_suffix='_gtFine_labelTrainIds.png',
             pan_map_suffix='_gtFine_panoptic.png',
             **kwargs)
 
