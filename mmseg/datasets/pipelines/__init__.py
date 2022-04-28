@@ -7,7 +7,7 @@ from .transforms import (CLAHE, AdjustGamma, Normalize, Pad,
                          PhotoMetricDistortion, RandomCrop, RandomFlip,
                          RandomRotate, Rerange, Resize, RGB2Gray, SegRescale,
                          ResizePanUDA, RandomCropPanUDA, RandomFlipPanUDA,
-                         NormalizePanUDA, PadPanUDA)
+                         NormalizePanUDA, PadPanUDA, SplitPanopticMaskPanUDA)
 
 __all__ = [
     'Compose', 'to_tensor', 'ToTensor', 'ImageToTensor', 'ToDataContainer',
@@ -18,5 +18,5 @@ __all__ = [
     'Normalize', 'SegRescale', 'PhotoMetricDistortion', 'RandomRotate',
     'AdjustGamma', 'CLAHE', 'Rerange', 'RGB2Gray',
     'ResizePanUDA', 'RandomCropPanUDA', 'RandomFlipPanUDA',
-    'NormalizePanUDA','PadPanUDA'
+    'NormalizePanUDA','PadPanUDA', 'SplitPanopticMaskPanUDA'
 ]

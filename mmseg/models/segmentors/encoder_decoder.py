@@ -329,7 +329,7 @@ class EncoderDecoderPanoptic(BaseSegmentor):
         self.backbone = builder.build_backbone(backbone)
         if neck is not None:
             self.neck = builder.build_neck(neck)
-        self._init_decode_head(decode_head)
+        self._init_decode_head(decode_head, train_cfg, test_cfg)
         self._init_auxiliary_head(auxiliary_head)
 
         self.train_cfg = train_cfg
@@ -337,8 +337,10 @@ class EncoderDecoderPanoptic(BaseSegmentor):
 
         assert self.with_decode_head
 
-    def _init_decode_head(self, decode_head):
+    def _init_decode_head(self, decode_head, train_cfg, test_cfg):
         """Initialize ``decode_head``"""
+        decode_head.update(train_cfg=train_cfg)
+        decode_head.update(test_cfg=test_cfg)
         self.decode_head = builder.build_head(decode_head)
         self.align_corners = self.decode_head.align_corners
         self.num_classes = self.decode_head.num_classes
@@ -425,6 +427,10 @@ class EncoderDecoderPanoptic(BaseSegmentor):
                       img,
                       img_metas,
                       gt_semantic_seg,
+                      gt_panoptic_seg, 
+                      gt_bbox_locs,
+                      gt_bbox_category,
+                      gt_bboxes_ignore=None,
                       seg_weight=None,
                       return_feat=False):
         """Forward function for training.
@@ -442,6 +448,34 @@ class EncoderDecoderPanoptic(BaseSegmentor):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+        
+        batch_input_shape = tuple(img[0].size()[-2:])
+        for img_meta in img_metas:
+            img_meta['batch_input_shape'] = batch_input_shape
+        #img_metas[0]['img'] = img
+        #super(SingleStagePanopticDetector, self).forward_train(img, img_metas)
+        x = self.extract_feat(img)
+        
+
+        BS,C,H,W = img.shape
+        new_gt_masks = []
+        for each in gt_panoptic_seg:
+            mask = torch.tensor(each,device=x[0].device)
+            _,h,w = mask.shape
+            padding = (
+                0,W-w,
+                0,H-h
+            )
+            mask = F.pad(mask,padding)
+            new_gt_masks.append(mask)
+        gt_panoptic_seg = new_gt_masks
+        gt_bbox_locs = [x.float() for x in gt_bbox_locs] # change it to float
+        losses = self.decode_head.forward_train(x, img_metas, gt_bbox_locs,
+                                              gt_bbox_category, gt_panoptic_seg,gt_bboxes_ignore,gt_semantic_seg=None)
+        
+        return losses
+
+        """ 
         x = self.extract_feat(img)
 
         losses = dict()
@@ -457,8 +491,10 @@ class EncoderDecoderPanoptic(BaseSegmentor):
             loss_aux = self._auxiliary_head_forward_train(
                 x, img_metas, gt_semantic_seg, seg_weight)
             losses.update(loss_aux)
-
+        
         return losses
+        """
+        
 
     # TODO refactor
     def slide_inference(self, img, img_meta, rescale):

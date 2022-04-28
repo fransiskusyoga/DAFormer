@@ -553,147 +553,149 @@ class DACSPanoptic(UDADecorator):
 
         # Train on source images
         clean_losses = self.get_model().forward_train(
-            img, img_metas, gt_semantic_seg, return_feat=True)
-        src_feat = clean_losses.pop('features')
-        clean_loss, clean_log_vars = self._parse_losses(clean_losses)
-        log_vars.update(clean_log_vars)
-        clean_loss.backward(retain_graph=self.enable_fdist)
-        if self.print_grad_magnitude:
-            params = self.get_model().backbone.parameters()
-            seg_grads = [
-                p.grad.detach().clone() for p in params if p.grad is not None
-            ]
-            grad_mag = calc_grad_magnitude(seg_grads)
-            mmcv.print_log(f'Seg. Grad.: {grad_mag}', 'mmseg')
+            img, img_metas, gt_semantic_seg, gt_panoptic_seg, 
+            gt_bbox_locs, gt_bbox_category, return_feat=True)
+        #src_feat = clean_losses.pop('features')
+        #clean_loss, clean_log_vars = self._parse_losses(clean_losses)
+        #log_vars.update(clean_log_vars)
+        #clean_loss.backward(retain_graph=self.enable_fdist)
+        #if self.print_grad_magnitude:
+        #    params = self.get_model().backbone.parameters()
+        #    seg_grads = [
+        #        p.grad.detach().clone() for p in params if p.grad is not None
+        #    ]
+        #    grad_mag = calc_grad_magnitude(seg_grads)
+        #    mmcv.print_log(f'Seg. Grad.: {grad_mag}', 'mmseg')
+        #
+        # # ImageNet feature distance
+        # if self.enable_fdist:
+        #     feat_loss, feat_log = self.calc_feat_dist(img, gt_semantic_seg,
+        #                                               src_feat)
+        #     feat_loss.backward()
+        #     log_vars.update(add_prefix(feat_log, 'src'))
+        #     if self.print_grad_magnitude:
+        #         params = self.get_model().backbone.parameters()
+        #         fd_grads = [
+        #             p.grad.detach() for p in params if p.grad is not None
+        #         ]
+        #         fd_grads = [g2 - g1 for g1, g2 in zip(seg_grads, fd_grads)]
+        #         grad_mag = calc_grad_magnitude(fd_grads)
+        #         mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
+        # 
+        # # Generate pseudo-label
+        # for m in self.get_ema_model().modules():
+        #     if isinstance(m, _DropoutNd):
+        #         m.training = False
+        #     if isinstance(m, DropPath):
+        #         m.training = False
+        # ema_logits = self.get_ema_model().encode_decode(
+        #     target_img, target_img_metas)
+        # 
+        # ema_softmax = torch.softmax(ema_logits.detach(), dim=1)
+        # pseudo_prob, pseudo_label = torch.max(ema_softmax, dim=1)
+        # ps_large_p = pseudo_prob.ge(self.pseudo_threshold).long() == 1
+        # ps_size = np.size(np.array(pseudo_label.cpu()))
+        # pseudo_weight = torch.sum(ps_large_p).item() / ps_size
+        # pseudo_weight = pseudo_weight * torch.ones(
+        #     pseudo_prob.shape, device=dev)
+        # 
+        # if self.psweight_ignore_top > 0:
+        #     # Don't trust pseudo-labels in regions with potential
+        #     # rectification artifacts. This can lead to a pseudo-label
+        #     # drift from sky towards building or traffic light.
+        #     pseudo_weight[:, :self.psweight_ignore_top, :] = 0
+        # if self.psweight_ignore_bottom > 0:
+        #     pseudo_weight[:, -self.psweight_ignore_bottom:, :] = 0
+        # gt_pixel_weight = torch.ones((pseudo_weight.shape), device=dev)
+        # 
+        # # Apply mixing
+        # mixed_img, mixed_lbl = [None] * batch_size, [None] * batch_size
+        # mix_masks = get_class_masks(gt_semantic_seg)
+        # 
+        # for i in range(batch_size):
+        #     strong_parameters['mix'] = mix_masks[i]
+        #     mixed_img[i], mixed_lbl[i] = strong_transform(
+        #         strong_parameters,
+        #         data=torch.stack((img[i], target_img[i])),
+        #         target=torch.stack((gt_semantic_seg[i][0], pseudo_label[i])))
+        #     _, pseudo_weight[i] = strong_transform(
+        #         strong_parameters,
+        #         target=torch.stack((gt_pixel_weight[i], pseudo_weight[i])))
+        # mixed_img = torch.cat(mixed_img)
+        # mixed_lbl = torch.cat(mixed_lbl)
+        # 
+        # # Train on mixed images
+        # mix_losses = self.get_model().forward_train(
+        #     mixed_img, img_metas, mixed_lbl, pseudo_weight, return_feat=True)
+        # mix_losses.pop('features')
+        # mix_losses = add_prefix(mix_losses, 'mix')
+        # mix_loss, mix_log_vars = self._parse_losses(mix_losses)
+        # log_vars.update(mix_log_vars)
+        # mix_loss.backward()
+        # 
+        # if self.local_iter % self.debug_img_interval == 0:
+        #     out_dir = os.path.join(self.train_cfg['work_dir'],
+        #                             'class_mix_debug')
+        #     os.makedirs(out_dir, exist_ok=True)
+        #     vis_img = torch.clamp(denorm(img, means, stds), 0, 1)
+        #     vis_trg_img = torch.clamp(denorm(target_img, means, stds), 0, 1)
+        #     vis_mixed_img = torch.clamp(denorm(mixed_img, means, stds), 0, 1)
+        #     for j in range(batch_size):
+        #         rows, cols = 2, 5
+        #         fig, axs = plt.subplots(
+        #             rows,
+        #             cols,
+        #             figsize=(3 * cols, 3 * rows),
+        #             gridspec_kw={
+        #                 'hspace': 0.1,
+        #                 'wspace': 0,
+        #                 'top': 0.95,
+        #                 'bottom': 0,
+        #                 'right': 1,
+        #                 'left': 0
+        #             },
+        #         )
+        #         subplotimg(axs[0][0], vis_img[j], 'Source Image')
+        #         subplotimg(axs[1][0], vis_trg_img[j], 'Target Image')
+        #         subplotimg(
+        #             axs[0][1],
+        #             gt_semantic_seg[j],
+        #             'Source Seg GT',
+        #             cmap='cityscapes')
+        #         subplotimg(
+        #             axs[1][1],
+        #             pseudo_label[j],
+        #             'Target Seg (Pseudo) GT',
+        #             cmap='cityscapes')
+        #         subplotimg(axs[0][2], vis_mixed_img[j], 'Mixed Image')
+        #         subplotimg(
+        #             axs[1][2], mix_masks[j][0], 'Domain Mask', cmap='gray')
+        #         # subplotimg(axs[0][3], pred_u_s[j], "Seg Pred",
+        #         #            cmap="cityscapes")
+        #         subplotimg(
+        #             axs[1][3], mixed_lbl[j], 'Seg Targ', cmap='cityscapes')
+        #         subplotimg(
+        #             axs[0][3], pseudo_weight[j], 'Pseudo W.', vmin=0, vmax=1)
+        #         if self.debug_fdist_mask is not None:
+        #             subplotimg(
+        #                 axs[0][4],
+        #                 self.debug_fdist_mask[j][0],
+        #                 'FDist Mask',
+        #                 cmap='gray')
+        #         if self.debug_gt_rescale is not None:
+        #             subplotimg(
+        #                 axs[1][4],
+        #                 self.debug_gt_rescale[j],
+        #                 'Scaled GT',
+        #                 cmap='cityscapes')
+        #         for ax in axs.flat:
+        #             ax.axis('off')
+        #         plt.savefig(
+        #             os.path.join(out_dir,
+        #                             f'{(self.local_iter + 1):06d}_{j}.png'))
+        #         plt.close()
+        # self.local_iter += 1
 
-        # ImageNet feature distance
-        if self.enable_fdist:
-            feat_loss, feat_log = self.calc_feat_dist(img, gt_semantic_seg,
-                                                      src_feat)
-            feat_loss.backward()
-            log_vars.update(add_prefix(feat_log, 'src'))
-            if self.print_grad_magnitude:
-                params = self.get_model().backbone.parameters()
-                fd_grads = [
-                    p.grad.detach() for p in params if p.grad is not None
-                ]
-                fd_grads = [g2 - g1 for g1, g2 in zip(seg_grads, fd_grads)]
-                grad_mag = calc_grad_magnitude(fd_grads)
-                mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
-
-        # Generate pseudo-label
-        for m in self.get_ema_model().modules():
-            if isinstance(m, _DropoutNd):
-                m.training = False
-            if isinstance(m, DropPath):
-                m.training = False
-        ema_logits = self.get_ema_model().encode_decode(
-            target_img, target_img_metas)
-
-        ema_softmax = torch.softmax(ema_logits.detach(), dim=1)
-        pseudo_prob, pseudo_label = torch.max(ema_softmax, dim=1)
-        ps_large_p = pseudo_prob.ge(self.pseudo_threshold).long() == 1
-        ps_size = np.size(np.array(pseudo_label.cpu()))
-        pseudo_weight = torch.sum(ps_large_p).item() / ps_size
-        pseudo_weight = pseudo_weight * torch.ones(
-            pseudo_prob.shape, device=dev)
-
-        if self.psweight_ignore_top > 0:
-            # Don't trust pseudo-labels in regions with potential
-            # rectification artifacts. This can lead to a pseudo-label
-            # drift from sky towards building or traffic light.
-            pseudo_weight[:, :self.psweight_ignore_top, :] = 0
-        if self.psweight_ignore_bottom > 0:
-            pseudo_weight[:, -self.psweight_ignore_bottom:, :] = 0
-        gt_pixel_weight = torch.ones((pseudo_weight.shape), device=dev)
-
-        # Apply mixing
-        mixed_img, mixed_lbl = [None] * batch_size, [None] * batch_size
-        mix_masks = get_class_masks(gt_semantic_seg)
-
-        for i in range(batch_size):
-            strong_parameters['mix'] = mix_masks[i]
-            mixed_img[i], mixed_lbl[i] = strong_transform(
-                strong_parameters,
-                data=torch.stack((img[i], target_img[i])),
-                target=torch.stack((gt_semantic_seg[i][0], pseudo_label[i])))
-            _, pseudo_weight[i] = strong_transform(
-                strong_parameters,
-                target=torch.stack((gt_pixel_weight[i], pseudo_weight[i])))
-        mixed_img = torch.cat(mixed_img)
-        mixed_lbl = torch.cat(mixed_lbl)
-
-        # Train on mixed images
-        mix_losses = self.get_model().forward_train(
-            mixed_img, img_metas, mixed_lbl, pseudo_weight, return_feat=True)
-        mix_losses.pop('features')
-        mix_losses = add_prefix(mix_losses, 'mix')
-        mix_loss, mix_log_vars = self._parse_losses(mix_losses)
-        log_vars.update(mix_log_vars)
-        mix_loss.backward()
-
-        if self.local_iter % self.debug_img_interval == 0:
-            out_dir = os.path.join(self.train_cfg['work_dir'],
-                                   'class_mix_debug')
-            os.makedirs(out_dir, exist_ok=True)
-            vis_img = torch.clamp(denorm(img, means, stds), 0, 1)
-            vis_trg_img = torch.clamp(denorm(target_img, means, stds), 0, 1)
-            vis_mixed_img = torch.clamp(denorm(mixed_img, means, stds), 0, 1)
-            for j in range(batch_size):
-                rows, cols = 2, 5
-                fig, axs = plt.subplots(
-                    rows,
-                    cols,
-                    figsize=(3 * cols, 3 * rows),
-                    gridspec_kw={
-                        'hspace': 0.1,
-                        'wspace': 0,
-                        'top': 0.95,
-                        'bottom': 0,
-                        'right': 1,
-                        'left': 0
-                    },
-                )
-                subplotimg(axs[0][0], vis_img[j], 'Source Image')
-                subplotimg(axs[1][0], vis_trg_img[j], 'Target Image')
-                subplotimg(
-                    axs[0][1],
-                    gt_semantic_seg[j],
-                    'Source Seg GT',
-                    cmap='cityscapes')
-                subplotimg(
-                    axs[1][1],
-                    pseudo_label[j],
-                    'Target Seg (Pseudo) GT',
-                    cmap='cityscapes')
-                subplotimg(axs[0][2], vis_mixed_img[j], 'Mixed Image')
-                subplotimg(
-                    axs[1][2], mix_masks[j][0], 'Domain Mask', cmap='gray')
-                # subplotimg(axs[0][3], pred_u_s[j], "Seg Pred",
-                #            cmap="cityscapes")
-                subplotimg(
-                    axs[1][3], mixed_lbl[j], 'Seg Targ', cmap='cityscapes')
-                subplotimg(
-                    axs[0][3], pseudo_weight[j], 'Pseudo W.', vmin=0, vmax=1)
-                if self.debug_fdist_mask is not None:
-                    subplotimg(
-                        axs[0][4],
-                        self.debug_fdist_mask[j][0],
-                        'FDist Mask',
-                        cmap='gray')
-                if self.debug_gt_rescale is not None:
-                    subplotimg(
-                        axs[1][4],
-                        self.debug_gt_rescale[j],
-                        'Scaled GT',
-                        cmap='cityscapes')
-                for ax in axs.flat:
-                    ax.axis('off')
-                plt.savefig(
-                    os.path.join(out_dir,
-                                 f'{(self.local_iter + 1):06d}_{j}.png'))
-                plt.close()
-        self.local_iter += 1
-
-        return log_vars
+        
+        return clean_losses
 

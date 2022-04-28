@@ -319,7 +319,7 @@ class LoadAnnotationsPanUDA(object):
             img_bytes, flag='unchanged',
             backend=self.imdecode_backend).squeeze().astype(np.uint8)
         gt_panoptic_seg = gt_panoptic_seg * np.array([[[256*256,256,1]]])
-        gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)[:,:,None]
+        gt_panoptic_seg = np.sum(gt_panoptic_seg, axis=2)
         
         # # Semantic segmentation map
         # if results.get('seg_prefix', None) is not None:

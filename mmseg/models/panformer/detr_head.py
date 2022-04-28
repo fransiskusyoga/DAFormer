@@ -61,6 +61,7 @@ class DETRHeadv2(
             in_channels,
             num_query=100,
             num_reg_fcs=2,
+            align_corners=False,
             transformer=None,
             sync_cls_avg_factor=False,
             positional_encoding=dict(type='SinePositionalEncoding',
@@ -129,6 +130,7 @@ class DETRHeadv2(
         self.num_stuff_classes = num_stuff_classes
         self.in_channels = in_channels
         self.num_reg_fcs = num_reg_fcs
+        self.align_corners = align_corners #this variable is not used yet
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.fp16_enabled = False

@@ -1430,11 +1430,15 @@ class SplitPanopticMaskPanUDA(object):
         #splitting image to N chanels, 1 for every instance
         gt_panoptic_seg = results['gt_panoptic_seg']
         if len(gt_panoptic_seg.shape) == 2:
-            gt_panoptic_seg = gt_panoptic_seg[:,:,None]
-        gt_panoptic_seg = np.equal(gt_panoptic_seg, results['gt_bbox_id']).astype(np.uint8)
+            gt_panoptic_seg = gt_panoptic_seg[None,:,:]
+        gt_panoptic_seg = np.equal(
+            gt_panoptic_seg, 
+            results['gt_bbox_id'][:,None,None]).astype(np.uint8)
         results['gt_panoptic_seg'] = gt_panoptic_seg
         if self.generate_semantic: 
-            results['gt_semantic_seg'] = np.sum(gt_panoptic_seg * results['gt_bbox_category'], axis=2)
+            results['gt_semantic_seg'] = np.sum(
+                gt_panoptic_seg * results['gt_bbox_category'][:,None,None],
+                axis=1)
         
         return results
 
