@@ -454,8 +454,16 @@ class EncoderDecoderPanoptic(BaseSegmentor):
             img_meta['batch_input_shape'] = batch_input_shape
         #img_metas[0]['img'] = img
         #super(SingleStagePanopticDetector, self).forward_train(img, img_metas)
-        x = self.extract_feat(img)
         
+        # this block is actually equal to x = self.extract_feat(img)
+        # but i cal it manually because I need the intermediate value
+        x = self.backbone(img)
+        if self.with_neck:
+            x = self.neck(x)
+        
+        losses = dict()
+        if return_feat:
+            losses['features'] = x
 
         BS,C,H,W = img.shape
         new_gt_masks = []
@@ -473,18 +481,6 @@ class EncoderDecoderPanoptic(BaseSegmentor):
         losses = self.decode_head.forward_train(x, img_metas, gt_bbox_locs,
                                               gt_bbox_category, gt_panoptic_seg,gt_bboxes_ignore,gt_semantic_seg=None)
         
-        return losses
-
-        """ 
-        x = self.extract_feat(img)
-
-        losses = dict()
-        if return_feat:
-            losses['features'] = x
-
-        loss_decode = self._decode_head_forward_train(x, img_metas,
-                                                      gt_semantic_seg,
-                                                      seg_weight)
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:
@@ -492,8 +488,8 @@ class EncoderDecoderPanoptic(BaseSegmentor):
                 x, img_metas, gt_semantic_seg, seg_weight)
             losses.update(loss_aux)
         
+
         return losses
-        """
         
 
     # TODO refactor
