@@ -194,17 +194,20 @@ class PanformerHead(DETRHeadv2):
                 as_two_stage is True it would be returned, otherwise \
                 `None` would be returned.
         """
-
+        
+        # Step 1: Mask and pos encoding
+        # Create mask for different input image size in the same batch
         batch_size = mlvl_feats[0].size(0)
        
         input_img_h, input_img_w = img_metas[0]['batch_input_shape']
 
+        # Mask in the original input size 
         img_masks = mlvl_feats[0].new_ones(
             (batch_size, input_img_h, input_img_w))
         for img_id in range(batch_size):
             img_h, img_w, _ = img_metas[img_id]['img_shape']
             img_masks[img_id, :img_h, :img_w] = 0
-
+        
         hw_lvl = [feat_lvl.shape[-2:] for feat_lvl in mlvl_feats]
         mlvl_masks = []
         mlvl_positional_encodings = []
@@ -214,10 +217,13 @@ class PanformerHead(DETRHeadv2):
                               size=feat.shape[-2:]).to(torch.bool).squeeze(0))
             mlvl_positional_encodings.append(
                 self.positional_encoding(mlvl_masks[-1]))
-
+        
+        # Step 2: Run The transformer
+        # fetch the querry mebedding
         query_embeds = None
         if not self.as_two_stage:
             query_embeds = self.query_embedding.weight
+        # Run the Transformer
         (memory, memory_pos, memory_mask, query_pos), hs, init_reference, inter_references, \
         enc_outputs_class, enc_outputs_coord = self.transformer(
             mlvl_feats,

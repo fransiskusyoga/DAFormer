@@ -397,12 +397,12 @@ class DACSPanoptic(UDADecorator):
 
         self.class_probs = {}
         ema_cfg = deepcopy(cfg['model'])
-        self.ema_model = build_segmentor(ema_cfg)
-
-        if self.enable_fdist:
-            self.imnet_model = build_segmentor(deepcopy(cfg['model']))
-        else:
-            self.imnet_model = None
+        #self.ema_model = build_segmentor(ema_cfg)
+        #
+        #if self.enable_fdist:
+        #    self.imnet_model = build_segmentor(deepcopy(cfg['model']))
+        #else:
+        #    self.imnet_model = None
 
     def get_ema_model(self):
         return get_module(self.ema_model)
@@ -461,9 +461,9 @@ class DACSPanoptic(UDADecorator):
                 averaging the logs.
         """
 
-        optimizer.zero_grad()
+        #optimizer.zero_grad()
         log_vars = self(**data_batch)
-        optimizer.step()
+        #optimizer.step()
 
         log_vars.pop('loss', None)  # remove the unnecessary 'loss'
         outputs = dict(
@@ -530,15 +530,15 @@ class DACSPanoptic(UDADecorator):
         batch_size = img.shape[0]
         dev = img.device
 
-        # Init/update ema model
-        if self.local_iter == 0:
-            self._init_ema_weights()
-            # assert _params_equal(self.get_ema_model(), self.get_model())
-
-        if self.local_iter > 0:
-            self._update_ema(self.local_iter)
-            # assert not _params_equal(self.get_ema_model(), self.get_model())
-            # assert self.get_ema_model().training
+        ## Init/update ema model
+        #if self.local_iter == 0:
+        #    self._init_ema_weights()
+        #    # assert _params_equal(self.get_ema_model(), self.get_model())
+        #
+        #if self.local_iter > 0:
+        #    self._update_ema(self.local_iter)
+        #    # assert not _params_equal(self.get_ema_model(), self.get_model())
+        #    # assert self.get_ema_model().training
 
         means, stds = get_mean_std(img_metas, dev)
         strong_parameters = {
@@ -555,9 +555,9 @@ class DACSPanoptic(UDADecorator):
         clean_losses = self.get_model().forward_train(
             img, img_metas, gt_semantic_seg, gt_panoptic_seg, 
             gt_bbox_locs, gt_bbox_category, return_feat=True)
-        #src_feat = clean_losses.pop('features')
-        #clean_loss, clean_log_vars = self._parse_losses(clean_losses)
-        #log_vars.update(clean_log_vars)
+        src_feat = clean_losses.pop('features', None)
+        clean_loss, clean_log_vars = self._parse_losses(clean_losses)
+        log_vars.update(clean_log_vars)
         #clean_loss.backward(retain_graph=self.enable_fdist)
         #if self.print_grad_magnitude:
         #    params = self.get_model().backbone.parameters()
@@ -697,5 +697,5 @@ class DACSPanoptic(UDADecorator):
         # self.local_iter += 1
 
         
-        return clean_losses
+        return log_vars
 
