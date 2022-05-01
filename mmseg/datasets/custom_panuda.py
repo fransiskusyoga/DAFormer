@@ -166,7 +166,8 @@ class CustomDatasetPanUDA(Dataset):
             bbox_locs[:,3] = bbox_locs[:,1] + bbox_locs[:,3]
             segments_info = dict(bbox_locs=bbox_locs, bbox_category=bbox_category, bbox_iscrowd=bbox_iscrowd, bbox_id=bbox_id)
 
-            img_info['ann'] = dict(pan_map=pan_map, segments_info=segments_info)
+            # segmap only for backward compatibilty
+            img_info['ann'] = dict(pan_map=pan_map, seg_map=pan_map, segments_info=segments_info)
             img_infos.append(img_info)
         
         print_log(
