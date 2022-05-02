@@ -478,7 +478,7 @@ class EncoderDecoderPanoptic(BaseSegmentor):
             new_gt_masks.append(mask)
         gt_panoptic_seg = new_gt_masks
         gt_bbox_locs = [x.float() for x in gt_bbox_locs] # change it to float
-        losses = self.decode_head.forward_train(x, img_metas, gt_bbox_locs,
+        loss_decode = self.decode_head.forward_train(x, img_metas, gt_bbox_locs,
                                               gt_bbox_category, gt_panoptic_seg,gt_bboxes_ignore,gt_semantic_seg=None)
         
         losses.update(loss_decode)
