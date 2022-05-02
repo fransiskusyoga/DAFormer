@@ -397,12 +397,12 @@ class DACSPanoptic(UDADecorator):
 
         self.class_probs = {}
         ema_cfg = deepcopy(cfg['model'])
-        #self.ema_model = build_segmentor(ema_cfg)
-        #
-        #if self.enable_fdist:
-        #    self.imnet_model = build_segmentor(deepcopy(cfg['model']))
-        #else:
-        #    self.imnet_model = None
+        self.ema_model = build_segmentor(ema_cfg)
+        
+        if self.enable_fdist:
+            self.imnet_model = build_segmentor(deepcopy(cfg['model']))
+        else:
+            self.imnet_model = None
 
     def get_ema_model(self):
         return get_module(self.ema_model)
@@ -461,9 +461,9 @@ class DACSPanoptic(UDADecorator):
                 averaging the logs.
         """
 
-        #optimizer.zero_grad()
+        optimizer.zero_grad()
         log_vars = self(**data_batch)
-        #optimizer.step()
+        optimizer.step()
 
         log_vars.pop('loss', None)  # remove the unnecessary 'loss'
         outputs = dict(
@@ -558,30 +558,30 @@ class DACSPanoptic(UDADecorator):
         src_feat = clean_losses.pop('features', None)
         clean_loss, clean_log_vars = self._parse_losses(clean_losses)
         log_vars.update(clean_log_vars)
-        #clean_loss.backward(retain_graph=self.enable_fdist)
-        #if self.print_grad_magnitude:
-        #    params = self.get_model().backbone.parameters()
-        #    seg_grads = [
-        #        p.grad.detach().clone() for p in params if p.grad is not None
-        #    ]
-        #    grad_mag = calc_grad_magnitude(seg_grads)
-        #    mmcv.print_log(f'Seg. Grad.: {grad_mag}', 'mmseg')
-        #
-        # # ImageNet feature distance
-        # if self.enable_fdist:
-        #     feat_loss, feat_log = self.calc_feat_dist(img, gt_semantic_seg,
-        #                                               src_feat)
-        #     feat_loss.backward()
-        #     log_vars.update(add_prefix(feat_log, 'src'))
-        #     if self.print_grad_magnitude:
-        #         params = self.get_model().backbone.parameters()
-        #         fd_grads = [
-        #             p.grad.detach() for p in params if p.grad is not None
-        #         ]
-        #         fd_grads = [g2 - g1 for g1, g2 in zip(seg_grads, fd_grads)]
-        #         grad_mag = calc_grad_magnitude(fd_grads)
-        #         mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
-        # 
+        clean_loss.backward(retain_graph=self.enable_fdist)
+        if self.print_grad_magnitude:
+           params = self.get_model().backbone.parameters()
+           seg_grads = [
+               p.grad.detach().clone() for p in params if p.grad is not None
+           ]
+           grad_mag = calc_grad_magnitude(seg_grads)
+           mmcv.print_log(f'Seg. Grad.: {grad_mag}', 'mmseg')
+    
+        # ImageNet feature distance
+        if self.enable_fdist:
+            feat_loss, feat_log = self.calc_feat_dist(img, gt_semantic_seg,
+                                                      src_feat)
+            feat_loss.backward()
+            log_vars.update(add_prefix(feat_log, 'src'))
+            if self.print_grad_magnitude:
+                params = self.get_model().backbone.parameters()
+                fd_grads = [
+                    p.grad.detach() for p in params if p.grad is not None
+                ]
+                fd_grads = [g2 - g1 for g1, g2 in zip(seg_grads, fd_grads)]
+                grad_mag = calc_grad_magnitude(fd_grads)
+                mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
+        
         # # Generate pseudo-label
         # for m in self.get_ema_model().modules():
         #     if isinstance(m, _DropoutNd):

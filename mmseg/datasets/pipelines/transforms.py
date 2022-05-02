@@ -1438,7 +1438,7 @@ class SplitPanopticMaskPanUDA(object):
         if self.generate_semantic: 
             results['gt_semantic_seg'] = np.sum(
                 gt_panoptic_seg * results['gt_bbox_category'][:,None,None],
-                axis=1)
+                axis=0)
         
         return results
 
