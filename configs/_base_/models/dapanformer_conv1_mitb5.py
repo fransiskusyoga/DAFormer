@@ -32,7 +32,7 @@ model = dict(
         ),
     decode_head=dict(
         type='PanformerHead',
-        num_query=100,
+        num_query=300,
         num_classes=19,  # 80+53
         num_things_classes=8,
         num_stuff_classes=11,

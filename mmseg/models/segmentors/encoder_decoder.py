@@ -4,6 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
 
 from mmseg.core import add_prefix
 from mmseg.ops import resize
@@ -362,18 +363,50 @@ class EncoderDecoderPanoptic(BaseSegmentor):
             x = self.neck(x)
         return x
 
-    def encode_decode(self, img, img_metas):
-        """Encode images with backbone and decode into a semantic segmentation
-        map of the same size as input."""
+    def encode_decode(self, img, img_metas=None, rescale=False):
+        
+        # Encode = initial extraction
+        batch_size = len(img_metas)
+        assert batch_size == 1, 'Currently only batch_size 1 for inference ' \
+            f'mode is supported. Found batch_size {batch_size}.'
+        batch_input_shape = tuple(img[0].size()[-2:])
+        for img_meta in img_metas:
+            img_meta['batch_input_shape'] = batch_input_shape
         x = self.extract_feat(img)
-        out = self.decode_head.forward_test(x, img_metas, self.test_cfg)
-        out = resize(
-            input=out,
-            size=img.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
-        return out
+        outs = self.decode_head(x, img_metas)
 
+        # Generate final output
+        # -get the raw panoptic
+        temp_result = self.decode_head.get_bboxes(*outs, img_metas, rescale=rescale)
+        assert isinstance(temp_result,dict), 'The return results should be a dict'
+        # -fetch the data from results
+        labels = temp_result['panoptic_labels']
+        panoptic = temp_result['panoptic']
+
+        # -get thing mask based on the id (category is not unique)
+        labels_thing = labels[labels[:,2]]
+        labels_thing_id = labels_thing[:,1][None,None,:]
+        mask_thing = (panoptic[:,:,1].unsqueeze(-1)==labels_thing_id) 
+
+        # -get stuff mask based on the category
+        labels_stuff = labels[labels[:,2]]
+        labels_stuff_ctgr = labels_stuff[:,0][None,None,:]
+        mask_stuff = (panoptic[:,:,0].unsqueeze(-1)==labels_stuff_ctgr) 
+
+        # -merge final result
+        labels = torch.cat((labels_thing,labels_stuff), 0)
+        panoptic = torch.cat((mask_thing,mask_stuff), 0)
+
+        # Return value
+        results = {
+            'labels' : labels,
+            'mask' : panoptic,
+            'bbox' : torchvision.ops.masks_to_boxes(results)
+        }
+        print(labels.shape, panoptic.shape, results['bbox'].shape)
+        assert False
+        return results
+        
 
     def _auxiliary_head_forward_train(self,
                                       x,
@@ -603,3 +636,5 @@ class EncoderDecoderPanoptic(BaseSegmentor):
         # unravel batch dim
         seg_pred = list(seg_pred)
         return seg_pred
+    
+

@@ -582,14 +582,13 @@ class DACSPanoptic(UDADecorator):
                 grad_mag = calc_grad_magnitude(fd_grads)
                 mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
         
-        # # Generate pseudo-label
-        # for m in self.get_ema_model().modules():
-        #     if isinstance(m, _DropoutNd):
-        #         m.training = False
-        #     if isinstance(m, DropPath):
-        #         m.training = False
-        # ema_logits = self.get_ema_model().encode_decode(
-        #     target_img, target_img_metas)
+        # Generate pseudo-label
+        for m in self.get_ema_model().modules():
+            if isinstance(m, _DropoutNd):
+                m.training = False
+            if isinstance(m, DropPath):
+                m.training = False
+        ema_logits = self.get_ema_model().encode_decode(target_img, target_img_metas)
         # 
         # ema_softmax = torch.softmax(ema_logits.detach(), dim=1)
         # pseudo_prob, pseudo_label = torch.max(ema_softmax, dim=1)

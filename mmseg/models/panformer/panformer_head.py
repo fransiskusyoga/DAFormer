@@ -1,3 +1,4 @@
+from cProfile import label
 import copy
 import torch
 import torch.nn as nn
@@ -1208,6 +1209,8 @@ class PanformerHead(DETRHeadv2):
             # Genrate final Panoptic mask
             results = torch.zeros((2, *mask_pred.shape[-2:]),
                                   device=mask_pred.device).to(torch.long)
+            # pan_lbl[:,0]:category, pan_lbl[:,1]:instance id, pan_lbl[:,2]:is_things 
+            panoptic_labels = []
             id_unique = 1
 
             for i, scores in enumerate(scores_all):
@@ -1238,15 +1241,23 @@ class PanformerHead(DETRHeadv2):
                 # create the panoptic mask 
                 # -result[0] is the label category
                 # -result[1] is the id of instance
-                results[0, _mask] = self.cat_dict[labels_all[i]]['id']
+                if self.datasets == 'coco':
+                    category = self.cat_dict[labels_all[i]]['id']
+                else :
+                    category = labels_all[i]
+                results[0, _mask] = category
                 if labels_all[i] < self.num_things_classes:
                     results[1, _mask] = id_unique
                     id_unique += 1
+                    panoptic_labels.append([category,id_unique,1])
+                else:
+                    panoptic_labels.append([category,-1,0])
 
             file_name = img_metas[img_id]['filename'].split('/')[-1].split(
                 '.')[0]
             panoptic_list.append(
                 (results.permute(1, 2, 0).cpu().numpy(), file_name, ori_shape))
+            panoptic_labels = torch.tensor(panoptic_labels).to(panoptic_list.device)
 
             bbox_list.append(bbox_th)
             labels_list.append(labels_th)
@@ -1256,18 +1267,7 @@ class PanformerHead(DETRHeadv2):
             'bbox': bbox_list,
             'segm': seg_list,
             'labels': labels_list,
-            'panoptic': panoptic_list
+            'panoptic': panoptic_list,
+            'panoptic_label': panoptic_labels
         }
-        return results
-
-    def get_prediction(self, img, img_metas=None, rescale=False):
-        
-        batch_size = len(img_metas)
-        assert batch_size == 1, 'Currently only batch_size 1 for inference ' \
-            f'mode is supported. Found batch_size {batch_size}.'
-        x = self.extract_feat(img)
-        outs = self.bbox_head(x, img_metas)
-
-        results = self.bbox_head.get_bboxes(*outs, img_metas, rescale=rescale)
-        assert isinstance(results,dict), 'The return results should be a dict'
         return results

@@ -11,7 +11,7 @@ source env/bin/activate
 #python tools/convert_datasets/cityscapes.py data/cityscapes --nproc 8
 #python tools/convert_datasets/synthia.py data/synthia/ --nproc 8
 
-#sh tools/seg_test.sh work_dirs/local-basic/220330_1849_gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0_dcb1e_first_fulltraining_daformer
+#sh tools/uda_test.sh work_dirs/local-basic/220330_1849_gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0_dcb1e_first_fulltraining_daformer
 
 # SEG test
 # rm -rf mmseg/datasets/pipelines mmseg/datasets/builder.py mmseg/datasets/custom.py mmseg/datasets/dataset_wrappers.py
@@ -19,10 +19,10 @@ source env/bin/activate
 # cp mmseg/datasets/builder_seg.py mmseg/datasets/builder.py
 # cp mmseg/datasets/custom_seg.py mmseg/datasets/custom.py
 # cp mmseg/datasets/dataset_wrappers_seg.py mmseg/datasets/dataset_wrappers.py
-# python -m tools.seg_test work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/211108_1622_gta2cs_daformer_s0_7f24c.json work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/latest.pth --eval mIoU --show-dir work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/preds --opacity 1
+# python -m tools.uda_test work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/211108_1622_gta2cs_daformer_s0_7f24c.json work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/latest.pth --eval mIoU --show-dir work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/preds --opacity 1
 
 # SEG train
-python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
+# python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
 # python run_experiments.py --config configs/daformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
 # python run_experiments.py --config configs/daformer/synthia_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py 
 # python run_experiments.py --config configs/generated/local-exp7/220416_1058_syn2cs_dacs_a999_fdthings_rcs001_cpl_daformer_sepaspp_mitb5_poly10warm_s0_49597.json
@@ -45,3 +45,5 @@ python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs
 
 # DAPan train
 # python run_experiments.py --config configs/dapanformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_dapanformer_mitb5_s0.py
+# pip install mmcv-full==1.3.17 -U -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.10.0/index.htm
+cd /scratch_net/biwidl312/ywibowo/work_dirs/ &&  pip install mmcv-full==1.3.7
