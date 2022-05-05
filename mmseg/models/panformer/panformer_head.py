@@ -167,10 +167,15 @@ class PanformerHead(DETRHeadv2):
         if self.as_two_stage:
             for m in self.reg_branches:
                 nn.init.constant_(m[-1].bias.data[2:], 0.0)
-
+                
     @force_fp32(apply_to=('mlvl_feats', ))
     def forward(self, mlvl_feats, img_metas=None):
-        """Forward function.
+        """Forward function. This forward is only generating the boudingbox \
+        prediction and some intermidiate variable for Mask Head. Funny enough \
+        i got this code in wierd structure. The predicted mask will be \
+        generated in function with "loss" name. The mask calculation will \
+        be performed in self.loss--(which calls)-->self.loss_single_panoptic. \
+        If you wanna know how to generate the mask check self.loss_single_panoptic.
 
         Args:
             mlvl_feats (tuple[Tensor]): Features from the upstream
@@ -218,8 +223,8 @@ class PanformerHead(DETRHeadv2):
             mlvl_positional_encodings.append(
                 self.positional_encoding(mlvl_masks[-1]))
         
-        # Step 2: Run The transformer
-        # fetch the querry mebedding
+        # Step 2: Run The transformer (get bbox and intermidiate vals for mask head)
+        # Fetch the querry mebedding
         query_embeds = None
         if not self.as_two_stage:
             query_embeds = self.query_embedding.weight
@@ -233,20 +238,21 @@ class PanformerHead(DETRHeadv2):
             reg_branches=self.reg_branches if self.with_box_refine else None,  # noqa:E501
             cls_branches=self.cls_branches if self.as_two_stage else None  # noqa:E501
         )
-
+        # The intermidiate values are packed to varaible args_tuple
+        # we should feed these to mask deocder.
         memory = memory.permute(1, 0, 2)
         query = hs[-1].permute(1, 0, 2)
         query_pos = query_pos.permute(1, 0, 2)
         memory_pos = memory_pos.permute(1, 0, 2)
 
         len_last_feat = hw_lvl[-1][0] * hw_lvl[-1][1]
-
-        # we should feed these to mask deocder.
         args_tuple = (memory[:, :-len_last_feat, :],
                       memory_mask[:, :-len_last_feat],
                       memory_pos[:, :-len_last_feat, :], query, None,
                       query_pos, hw_lvl)
 
+        # Step 3: Post process of the output coordinate and classes
+        # the output from transformer will be processed
         hs = hs.permute(0, 2, 1, 3)
         outputs_classes = []
         outputs_coords = []
@@ -337,7 +343,6 @@ class PanformerHead(DETRHeadv2):
         gt_stuff_masks_list = []
         
         for i, each in enumerate(gt_labels_list):   
-            # MDS: for coco, id<80 (Continuous id) is things. This is not true for other data sets
             things_selected = each < self.num_things_classes
 
             stuff_selected = things_selected == False
@@ -421,9 +426,7 @@ class PanformerHead(DETRHeadv2):
             num_dec_layer += 1
         # print(loss_dict)
         return loss_dict
-
-
-    
+ 
     def filter_query(self,
                      cls_scores_list,
                      bbox_preds_list,
@@ -704,31 +707,36 @@ class PanformerHead(DETRHeadv2):
             dict[str, Tensor]: A dictionary of loss components for outputs from
                 a single decoder layer.
         """
+
+        # Calculate the loss for detection model
         num_imgs = cls_scores.size(0)
-        gt_stuff_labels_list, gt_stuff_masks_list = gt_panoptic_list
         cls_scores_list = [cls_scores[i] for i in range(num_imgs)]
         bbox_preds_list = [bbox_preds[i] for i in range(num_imgs)]
         loss_cls, loss_iou, loss_bbox, pos_inds_mask_list, num_total_pos_thing = self.get_filter_results_and_loss(
             cls_scores, bbox_preds, cls_scores_list, bbox_preds_list, gt_bboxes_list, gt_labels_list, img_metas, gt_bboxes_ignore_list)
 
+
+        # Fetch stuff query and things query
+        # -get data from agrs_tuple
         memory, memory_mask, memory_pos, query, _, query_pos, hw_lvl = args_tuple
-
+        # -fetch things query
         BS, _, dim_query = query.shape[0], query.shape[1], query.shape[-1]
-
         len_query = max([len(pos_ind) for pos_ind in pos_inds_mask_list])
         thing_query = torch.zeros([BS, len_query, dim_query],
                                   device=query.device)
-
+        for i in range(BS):
+            thing_query[i, :len(pos_inds_mask_list[i])] = query[
+                i, pos_inds_mask_list[i]]
+        # -fetch stuff query
         stuff_query, stuff_query_pos = torch.split(self.stuff_query.weight,
                                                    self.embed_dims,
                                                    dim=1)
         stuff_query_pos = stuff_query_pos.unsqueeze(0).expand(BS, -1, -1)
         stuff_query = stuff_query.unsqueeze(0).expand(BS, -1, -1)
 
-        for i in range(BS):
-            thing_query[i, :len(pos_inds_mask_list[i])] = query[
-                i, pos_inds_mask_list[i]]
 
+        # Generate Mask Prediction
+        # -create the empty list for the placeholder
         mask_preds_things = []
         mask_preds_stuff = []
         # mask_preds_inter = [[],[],[]]
@@ -742,18 +750,14 @@ class PanformerHead(DETRHeadv2):
             for _ in range(self.num_dec_things)
         ]
 
+        # -run mask-head Tranformer
         mask_things, mask_inter_things, query_inter_things = self.things_mask_head(
             memory, memory_mask, None, thing_query, None, None, hw_lvl=hw_lvl)
 
         mask_stuff, mask_inter_stuff, query_inter_stuff = self.stuff_mask_head(
-            memory,
-            memory_mask,
-            None,
-            stuff_query,
-            None,
-            stuff_query_pos,
-            hw_lvl=hw_lvl)
-
+            memory, memory_mask, None, stuff_query, None, stuff_query_pos, hw_lvl=hw_lvl)
+        
+        # -squeezing size of mask
         mask_things = mask_things.squeeze(-1)
         mask_inter_things = torch.stack(mask_inter_things, 0).squeeze(-1)
 
@@ -779,8 +783,7 @@ class PanformerHead(DETRHeadv2):
                 t1, t2, t3 = query_things.shape
                 tmp = self.reg_branches2[j](query_things.reshape(t1 * t2, t3)).reshape(t1, t2, 4)
                 if len(pos_ind) == 0:
-                    tmp = tmp.sum(
-                    ) + reference_i  # for reply bug of pytorch broadcast
+                    tmp = tmp.sum() + reference_i  # for reply bug of pytorch broadcast
                 elif reference_i.shape[-1] == 4:
                     tmp += reference_i
                 else:
@@ -863,6 +866,7 @@ class PanformerHead(DETRHeadv2):
         mask_weight_stuff = []
         stuff_labels = []
         num_total_pos_stuff = 0
+        gt_stuff_labels_list, gt_stuff_masks_list = gt_panoptic_list
         for i in range(BS):
             num_total_pos_stuff += len(gt_stuff_labels_list[i])  ## all stuff
 
@@ -1096,19 +1100,25 @@ class PanformerHead(DETRHeadv2):
             ori_shape = img_metas[img_id]['ori_shape']
             scale_factor = img_metas[img_id]['scale_factor']
 
+            # Initial Calculation
+            # -calculate the bbox
             index, bbox, labels = self._get_bboxes_single(
                 cls_score, bbox_pred, img_shape, scale_factor, rescale)
-
+            
+            # -get thing and stuff queries
+            #   thing query
             i = img_id
             thing_query = query[i:i + 1, index, :]
             thing_query_pos = query_pos[i:i + 1, index, :]
             joint_query = torch.cat([
                 thing_query, self.stuff_query.weight[None, :, :self.embed_dims]
             ], 1)
-
+            #   stuff query
             stuff_query_pos = self.stuff_query.weight[None, :,
                                                       self.embed_dims:]
-
+            
+            # Generate raw mask for things and stuffs
+            # -run transformers
             mask_things, mask_inter_things, query_inter_things = self.things_mask_head(
                 memory[i:i + 1],
                 memory_mask[i:i + 1],
@@ -1126,73 +1136,95 @@ class PanformerHead(DETRHeadv2):
                 stuff_query_pos,
                 hw_lvl=hw_lvl)
 
+            # -merge stuff and thing masks to attn_map
             attn_map = torch.cat([mask_things, mask_stuff], 1)
             attn_map = attn_map.squeeze(-1)  # BS, NQ, N_head,LEN
 
+            # -calculate stuff score using last intermidiate stuff query
             stuff_query = query_inter_stuff[-1]
             scores_stuff = self.cls_stuff_branches[-1](
                 stuff_query).sigmoid().reshape(-1)
-
+            
+            # -reshaping mask pred
             mask_pred = attn_map.reshape(-1, *hw_lvl[0])
-
             mask_pred = F.interpolate(mask_pred.unsqueeze(0),
                                       size=ori_shape[:2],
                                       mode='bilinear').squeeze(0)
-
+            
+            # Generate raw mask, and bbox for all (thing and stuff)
+            # -Segmentataion by thresholding
             masks_all = mask_pred
             seg_all = masks_all > 0.5
-            sum_seg_all = seg_all.sum((1, 2)).float() + 1
-            scores_all = torch.cat([bbox[:, -1], scores_stuff], 0)
+
+            # -create bbox for all, bbox for stuff is initialized as 0
             bboxes_all = torch.cat([
                 bbox,
                 torch.zeros([self.num_stuff_classes, 5], device=labels.device)
             ], 0)
 
-            # MDS: concat stuff id for coco
+            # -add stuff label, bbox prediction only things object we need to 
+            #  add label for stuff mask. Every single stuff have 1 mask. 
             labels_all = torch.cat(
-                [labels, torch.arange(80, 134).to(labels.device)], 0)
+                [labels, torch.arange(self.num_things_classes, self.num_classes+1).to(labels.device)], 0)
 
-            ## mask wise merging
+            # Sort array by core value
+            # -Calculate the quality score for all things ans stuff
+            #   concatenate score from things and stuff
+            scores_all = torch.cat([bbox[:, -1], scores_stuff], 0)
+            #   calculate the mean of mask value
+            sum_seg_all = seg_all.sum((1, 2)).float() + 1
             seg_scores = (masks_all * seg_all.float()).sum(
                 (1, 2)) / sum_seg_all
+            #   final refinement by mean of mask value
             scores_all *= (seg_scores**2)
 
+            # -sort by core value
             scores_all, index = torch.sort(scores_all, descending=True)
 
+            # -apply short index to other data
             masks_all = masks_all[index]
             labels_all = labels_all[index]
             bboxes_all = bboxes_all[index]
             seg_all = seg_all[index]
 
+            # -update score value in bboxes_all variable was oudated 
+            #  because mean of mask value
             bboxes_all[:, -1] = scores_all
 
-            # MDS: select things for instance segmeantion
-            things_selected = labels_all < 80
-            stuff_selected = labels_all >= 80
-            bbox_th = bboxes_all[things_selected][:100]
+            # Select things for instance segmeantion
+            # -create mask for selecting things and stuff
+            things_selected = labels_all < self.num_things_classes
+            stuff_selected = labels_all >= self.num_things_classes
+            # -only 100 best-scored thing bbox, label, and segmentataion 
+            #  to be considered
+            bbox_th = bboxes_all[things_selected][:100] 
             labels_th = labels_all[things_selected][:100]
             seg_th = seg_all[things_selected][:100]
+            # -all stuff object will be considered regardless the score
             labels_st = labels_all[stuff_selected]
             scores_st = scores_all[stuff_selected]
             masks_st = masks_all[stuff_selected]
 
+            # Genrate final Panoptic mask
             results = torch.zeros((2, *mask_pred.shape[-2:]),
                                   device=mask_pred.device).to(torch.long)
             id_unique = 1
 
             for i, scores in enumerate(scores_all):
-                # MDS: things and sutff have different threholds may perform a little bit better
+                # skip all mask that score value lower than threshold
+                # things and sutff have different threholds may perform a little bit better
                 if labels_all[
-                        i] < 80 and scores < self.quality_threshold_things:
+                        i] < self.num_things_classes and scores < self.quality_threshold_things:
                     continue
                 elif labels_all[
-                        i] >= 80 and scores < self.quality_threshold_stuff:
+                        i] >= self.num_things_classes and scores < self.quality_threshold_stuff:
                     continue
+                # ignore all mask that has big overlap with other objects
                 _mask = masks_all[i] > 0.5
                 mask_area = _mask.sum().item()
                 intersect = _mask & (results[0] > 0)
                 intersect_area = intersect.sum().item()
-                if labels_all[i] < 80:
+                if labels_all[i] < self.num_things_classes:
                     if mask_area == 0 or (intersect_area * 1.0 / mask_area
                                           ) > self.overlap_threshold_things:
                         continue
@@ -1200,10 +1232,14 @@ class PanformerHead(DETRHeadv2):
                     if mask_area == 0 or (intersect_area * 1.0 / mask_area
                                           ) > self.overlap_threshold_stuff:
                         continue
+                # remove the overlaped region from current mask
                 if intersect_area > 0:
                     _mask = _mask & (results[0] == 0)
+                # create the panoptic mask 
+                # -result[0] is the label category
+                # -result[1] is the id of instance
                 results[0, _mask] = self.cat_dict[labels_all[i]]['id']
-                if labels_all[i] < 80:
+                if labels_all[i] < self.num_things_classes:
                     results[1, _mask] = id_unique
                     id_unique += 1
 
@@ -1222,4 +1258,16 @@ class PanformerHead(DETRHeadv2):
             'labels': labels_list,
             'panoptic': panoptic_list
         }
+        return results
+
+    def get_prediction(self, img, img_metas=None, rescale=False):
+        
+        batch_size = len(img_metas)
+        assert batch_size == 1, 'Currently only batch_size 1 for inference ' \
+            f'mode is supported. Found batch_size {batch_size}.'
+        x = self.extract_feat(img)
+        outs = self.bbox_head(x, img_metas)
+
+        results = self.bbox_head.get_bboxes(*outs, img_metas, rescale=rescale)
+        assert isinstance(results,dict), 'The return results should be a dict'
         return results
