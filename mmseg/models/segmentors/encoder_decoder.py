@@ -366,7 +366,7 @@ class EncoderDecoderPanoptic(BaseSegmentor):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         x = self.extract_feat(img)
-        out = self._decode_head_forward_test(x, img_metas)
+        out = self.decode_head.forward_test(x, img_metas, self.test_cfg)
         out = resize(
             input=out,
             size=img.shape[2:],
@@ -374,27 +374,6 @@ class EncoderDecoderPanoptic(BaseSegmentor):
             align_corners=self.align_corners)
         return out
 
-    def _decode_head_forward_train(self,
-                                   x,
-                                   img_metas,
-                                   gt_semantic_seg,
-                                   seg_weight=None):
-        """Run forward function and calculate loss for decode head in
-        training."""
-        losses = dict()
-        loss_decode = self.decode_head.forward_train(x, img_metas,
-                                                     gt_semantic_seg,
-                                                     self.train_cfg,
-                                                     seg_weight)
-
-        losses.update(add_prefix(loss_decode, 'decode'))
-        return losses
-
-    def _decode_head_forward_test(self, x, img_metas):
-        """Run forward function and calculate loss for decode head in
-        inference."""
-        seg_logits = self.decode_head.forward_test(x, img_metas, self.test_cfg)
-        return seg_logits
 
     def _auxiliary_head_forward_train(self,
                                       x,
@@ -479,9 +458,10 @@ class EncoderDecoderPanoptic(BaseSegmentor):
         gt_panoptic_seg = new_gt_masks
         gt_bbox_locs = [x.float() for x in gt_bbox_locs] # change it to float
         loss_decode = self.decode_head.forward_train(x, img_metas, gt_bbox_locs,
-                                              gt_bbox_category, gt_panoptic_seg,gt_bboxes_ignore,gt_semantic_seg=None)
+                                              gt_bbox_category, gt_panoptic_seg,
+                                              gt_bboxes_ignore, gt_semantic_seg=None)
         
-        losses.update(loss_decode)
+        losses.update(add_prefix(loss_decode, 'decode'))
 
         if self.with_auxiliary_head:
             loss_aux = self._auxiliary_head_forward_train(
