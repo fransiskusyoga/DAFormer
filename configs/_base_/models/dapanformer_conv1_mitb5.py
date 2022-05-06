@@ -32,7 +32,10 @@ model = dict(
         ),
     decode_head=dict(
         type='PanformerHead',
-        num_query=300,
+        # the minimum querry num is 100 you need to change panformer head get_bboxes
+        # line "bbox_th = bboxes_all[things_selected][:100]" if you want to 
+        # change the minium number
+        num_query=300, 
         num_classes=19,  # 80+53
         num_things_classes=8,
         num_stuff_classes=11,
@@ -44,7 +47,7 @@ model = dict(
             type='Deformable_Transformer',
             encoder=dict(
                 type='DetrTransformerEncoder',
-                num_layers=6,
+                num_layers=6, #minimum value is 2
                 transformerlayers=dict(
                     type='BaseTransformerLayer',
                     attn_cfgs=dict(
@@ -57,7 +60,7 @@ model = dict(
                     operation_order=('self_attn', 'norm', 'ffn', 'norm'))),
             decoder=dict(
                 type='DeformableDetrTransformerDecoder',
-                num_layers=6,
+                num_layers=6, #minimum value is 2
                 return_intermediate=True,
                 transformerlayers=dict(
                     type='DetrTransformerDecoderLayer',

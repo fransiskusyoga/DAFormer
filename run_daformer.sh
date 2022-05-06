@@ -46,4 +46,4 @@ source env/bin/activate
 # DAPan train
 # python run_experiments.py --config configs/dapanformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_dapanformer_mitb5_s0.py
 # pip install mmcv-full==1.3.17 -U -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.10.0/index.htm
-cd /scratch_net/biwidl312/ywibowo/work_dirs/ &&  pip install mmcv-full==1.3.7
+python run_experiments.py --config configs/dapanformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_dapanformer_mitb5_s0.py

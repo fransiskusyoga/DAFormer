@@ -6,10 +6,12 @@ _base_ = [
     '../_base_/datasets/uda_panoptic_synthia_to_cityscapes_512x512.py',
     # Basic UDA Self-Training
     '../_base_/uda/dacs_panoptic.py',
-    # AdamW Optimizer
-    '../_base_/schedules/adamw.py',
-    # Linear Learning Rate Warmup with Subsequent Linear Decay
-    '../_base_/schedules/poly10warm.py'
+    # # AdamW Optimizer
+    # '../_base_/schedules/adamw.py',
+    # # Linear Learning Rate Warmup with Subsequent Linear Decay
+    # '../_base_/schedules/poly10warm.py'
+    # Optimizer panformer
+    '../_base_/schedules/panformer_adamw.py'
 ]
 # Random Seed
 seed = 0
@@ -42,7 +44,7 @@ n_gpus = 1
 runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=100, metric='mIoU')
+evaluation = dict(interval=4000, metric='mIoU')
 # Meta Information for Result Analysis
 name = 'synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0'
 exp = 'basic'
