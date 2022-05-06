@@ -1092,6 +1092,7 @@ class PanformerHead(DETRHeadv2):
 
         seg_list = []
         panoptic_list = []
+        panoptic_labels_list = []
         bbox_list = []
         labels_list = []
         for img_id in range(len(img_metas)):
@@ -1099,6 +1100,7 @@ class PanformerHead(DETRHeadv2):
             bbox_pred = bbox_preds[img_id]
             img_shape = img_metas[img_id]['img_shape']
             ori_shape = img_metas[img_id]['ori_shape']
+            mask_shape = img_shape #it was original shape but it overload my cpu memory
             scale_factor = img_metas[img_id]['scale_factor']
 
             # Initial Calculation
@@ -1149,7 +1151,7 @@ class PanformerHead(DETRHeadv2):
             # -reshaping mask pred
             mask_pred = attn_map.reshape(-1, *hw_lvl[0])
             mask_pred = F.interpolate(mask_pred.unsqueeze(0),
-                                      size=ori_shape[:2],
+                                      size=mask_shape[:2],
                                       mode='bilinear').squeeze(0)
             
             # Generate raw mask, and bbox for all (thing and stuff)
@@ -1256,8 +1258,9 @@ class PanformerHead(DETRHeadv2):
             file_name = img_metas[img_id]['filename'].split('/')[-1].split(
                 '.')[0]
             panoptic_list.append(
-                (results.permute(1, 2, 0).cpu().numpy(), file_name, ori_shape))
-            panoptic_labels = torch.tensor(panoptic_labels).to(panoptic_list.device)
+                (results.permute(1, 2, 0).cpu().numpy(), file_name, mask_shape))
+            panoptic_labels = torch.tensor(panoptic_labels).to(results.device)
+            panoptic_labels_list.append(panoptic_labels)
 
             bbox_list.append(bbox_th)
             labels_list.append(labels_th)
@@ -1268,6 +1271,6 @@ class PanformerHead(DETRHeadv2):
             'segm': seg_list,
             'labels': labels_list,
             'panoptic': panoptic_list,
-            'panoptic_label': panoptic_labels
+            'panoptic_labels': panoptic_labels_list
         }
         return results

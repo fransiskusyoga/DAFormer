@@ -31,18 +31,18 @@ cityscapes_train_pipeline = [
     dict(type='Collect', keys=['img', 'gt_semantic_seg', 'gt_panoptic_seg', 'gt_bbox_locs', 'gt_bbox_category', 'gt_bbox_iscrowd']),
 ]
 test_pipeline = [
-    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageFromFilePanUDA'),
     dict(
         type='MultiScaleFlipAug',
-        img_scale=(1024, 512),
+        img_scale=(512, 256),  # if image size is too big the cpu RAM will be overloaded
         # MultiScaleFlipAug is disabled by not providing img_ratios and
         # setting flip=False
         # img_ratios=[0.5, 0.75, 1.0, 1.25, 1.5, 1.75],
         flip=False,
         transforms=[
-            dict(type='Resize', keep_ratio=True),
-            dict(type='RandomFlip'),
-            dict(type='Normalize', **img_norm_cfg),
+            dict(type='ResizePanUDA', keep_ratio=True),
+            dict(type='RandomFlipPanUDA'),
+            dict(type='NormalizePanUDA', **img_norm_cfg),
             dict(type='ImageToTensor', keys=['img']),
             dict(type='Collect', keys=['img']),
         ])
@@ -67,14 +67,16 @@ data = dict(
             ann_file='gtFine/cityscapes_panoptic_dapanformer_train.json',
             pipeline=cityscapes_train_pipeline)),
     val=dict(
-        type='CityscapesDataset',
+        type='CityscapesDataset_panoptic',
         data_root='data/cityscapes/',
         img_dir='leftImg8bit/val',
-        ann_dir='gtFine/val',
+        pan_map_dir='gtFine/cityscapes_panoptic_val',
+        ann_file='gtFine/cityscapes_panoptic_dapanformer_val.json',
         pipeline=test_pipeline),
     test=dict(
-        type='CityscapesDataset',
+        type='CityscapesDataset_panoptic',
         data_root='data/cityscapes/',
         img_dir='leftImg8bit/val',
-        ann_dir='gtFine/val',
+        pan_map_dir='gtFine/cityscapes_panoptic_val',
+        ann_file='gtFine/cityscapes_panoptic_dapanformer_val.json',
         pipeline=test_pipeline))
