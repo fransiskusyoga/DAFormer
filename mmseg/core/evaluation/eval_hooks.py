@@ -31,8 +31,8 @@ class EvalHook_seg(_EvalHook):
         if not self._should_evaluate(runner):
             return
 
-        from mmseg.apis import single_gpu_test_uda
-        results = single_gpu_test_uda(
+        from mmseg.apis import single_gpu_test_seg
+        results = single_gpu_test_seg(
             runner.model,
             self.dataloader,
             show=False,
@@ -107,7 +107,7 @@ class EvalHook_pan(_EvalHook):
         if not self._should_evaluate(runner):
             return
 
-        from easymd.apis import single_gpu_test_pan
+        from mmseg.apis import single_gpu_test_pan
         results = single_gpu_test_pan(runner.model, self.dataloader, show=False)
         runner.log_buffer.output['eval_iter_num'] = len(self.dataloader)
         key_score = self.evaluate(runner, results)
@@ -141,7 +141,7 @@ class DistEvalHook_pan(_DistEvalHook):
         if tmpdir is None:
             tmpdir = osp.join(runner.work_dir, '.eval_hook')
 
-        from easymd.apis import multi_gpu_test_pan
+        from mmseg.apis import multi_gpu_test_pan
         results = multi_gpu_test_pan(
             runner.model,
             self.dataloader,

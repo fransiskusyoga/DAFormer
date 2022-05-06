@@ -11,7 +11,7 @@ from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
                          wrap_fp16_model)
 from mmcv.utils import DictAction
 
-from mmseg.apis import multi_gpu_test_uda, single_gpu_test_uda
+from mmseg.apis import multi_gpu_test_seg, single_gpu_test_seg
 from mmseg.datasets import build_dataloader, build_dataset
 from mmseg.models import build_segmentor
 
@@ -159,14 +159,14 @@ def main():
 
     if not distributed:
         model = MMDataParallel(model, device_ids=[0])
-        outputs = single_gpu_test_uda(model, data_loader, args.show, args.show_dir,
+        outputs = single_gpu_test_seg(model, data_loader, args.show, args.show_dir,
                                   efficient_test, args.opacity)
     else:
         model = MMDistributedDataParallel(
             model.cuda(),
             device_ids=[torch.cuda.current_device()],
             broadcast_buffers=False)
-        outputs = multi_gpu_test_uda(model, data_loader, args.tmpdir,
+        outputs = multi_gpu_test_seg(model, data_loader, args.tmpdir,
                                  args.gpu_collect, efficient_test)
 
     rank, _ = get_dist_info()

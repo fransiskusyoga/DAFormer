@@ -256,7 +256,7 @@ def multi_gpu_test_pan(model,
     time.sleep(1) 
     return results
 
-def single_gpu_test_uda(model,
+def single_gpu_test_seg(model,
                         data_loader,
                         show=False,
                         out_dir=None,
@@ -324,13 +324,17 @@ def single_gpu_test_uda(model,
                 result = np2tmp(result, tmpdir='.efficient_test')
             results.append(result)
 
-        batch_size = len(result)
+        if result is list:
+            batch_size = len(result)
+        else :
+            k = list(result.keys())[0]
+            batch_size = len(result[k])
         for _ in range(batch_size):
             prog_bar.update()
     return results
 
 
-def multi_gpu_test_uda(model,
+def multi_gpu_test_seg(model,
                    data_loader,
                    tmpdir=None,
                    gpu_collect=False,
