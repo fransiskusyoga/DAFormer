@@ -1,6 +1,7 @@
 # Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
 # Modifications: Support for seg_weight
 
+from mmseg.core.bbox.transforms import bbox_flip
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,6 +12,8 @@ from mmseg.ops import resize
 from .. import builder
 from ..builder import SEGMENTORS
 from .base import BaseSegmentor
+from mmseg.core import bbox2result
+from mmseg.models.utils.transform import mask2result
 
 
 @SEGMENTORS.register_module()
@@ -379,29 +382,41 @@ class EncoderDecoderPanoptic(BaseSegmentor):
         # -get the raw panoptic
         temp_result = self.decode_head.get_bboxes(*outs, img_metas, rescale=rescale)
         assert isinstance(temp_result,dict), 'The return results should be a dict'
-        # -fetch the data from results
-        labels = temp_result['panoptic_labels']
-        panoptic = temp_result['panoptic']
 
-        # -get thing mask based on the id (category is not unique)
-        labels_thing = labels[labels[:,2]]
-        labels_thing_id = labels_thing[:,1][None,None,:]
-        mask_thing = (panoptic[:,:,1].unsqueeze(-1)==labels_thing_id) 
+        labels_list = []
+        panoptic_list = []
+        bbox_list = []
+        for i in range(len(temp_result['panoptic'])):
+            # -fetch the data from results
+            labels = temp_result['panoptic_labels'][i]
+            panoptic = temp_result['panoptic'][i]
+            print(labels.shape)
 
-        # -get stuff mask based on the category
-        labels_stuff = labels[labels[:,2]]
-        labels_stuff_ctgr = labels_stuff[:,0][None,None,:]
-        mask_stuff = (panoptic[:,:,0].unsqueeze(-1)==labels_stuff_ctgr) 
+            # -get thing mask based on the id (category is not unique)
+            labels_thing = labels[labels[:,2]]
+            labels_thing_id = labels_thing[:,1][None,None,:]
+            mask_thing = (panoptic[:,:,1].unsqueeze(-1)==labels_thing_id) 
 
-        # -merge final result
-        labels = torch.cat((labels_thing,labels_stuff), 0)
-        panoptic = torch.cat((mask_thing,mask_stuff), 0)
+            # -get stuff mask based on the category
+            labels_stuff = labels[labels[:,2]]
+            labels_stuff_ctgr = labels_stuff[:,0][None,None,:]
+            mask_stuff = (panoptic[:,:,0].unsqueeze(-1)==labels_stuff_ctgr) 
+
+            # -merge final result
+            labels = torch.cat((labels_thing,labels_stuff), 0)
+            panoptic = torch.cat((mask_thing,mask_stuff), 0)
+            bbox = torchvision.ops.masks_to_boxes(results)
+            
+            # -append data
+            labels_list.append(labels)
+            panoptic_list.append(panoptic)
+            bbox_list.append(bbox)
 
         # Return value
         results = {
-            'labels' : labels,
-            'mask' : panoptic,
-            'bbox' : torchvision.ops.masks_to_boxes(results)
+            'labels' : labels_list,
+            'mask' : panoptic_list,
+            'bbox' : bbox_list
         }
         print(labels.shape, panoptic.shape, results['bbox'].shape)
         assert False
@@ -605,18 +620,69 @@ class EncoderDecoderPanoptic(BaseSegmentor):
 
         return output
 
-    def simple_test(self, img, img_meta, rescale=True):
-        """Simple test with single image."""
-        seg_logit = self.inference(img, img_meta, rescale)
-        seg_pred = seg_logit.argmax(dim=1)
-        if torch.onnx.is_in_onnx_export():
-            # our inference backend only support 4D output
-            seg_pred = seg_pred.unsqueeze(0)
-            return seg_pred
-        seg_pred = seg_pred.cpu().numpy()
-        # unravel batch dim
-        seg_pred = list(seg_pred)
-        return seg_pred
+    def simple_test(self, img, img_metas, rescale=True):
+        """Test function without test time augmentation.
+
+        Args:
+            imgs (list[torch.Tensor]): List of multiple images
+            img_metas (list[dict]): List of image information.
+            rescale (bool, optional): Whether to rescale the results.
+                Defaults to False.
+
+        Returns:
+            list[list[np.ndarray]]: BBox results of each image and classes.
+                The outer list corresponds to each image. The inner list
+                corresponds to each class.
+        """
+     
+        batch_input_shape = tuple(img[0].size()[-2:])
+        for img_meta in img_metas:
+            img_meta['batch_input_shape'] = batch_input_shape
+        batch_size = len(img_metas)
+        assert batch_size == 1, 'Currently only batch_size 1 for inference ' \
+            f'mode is supported. Found batch_size {batch_size}.'
+        x = self.extract_feat(img)
+        outs = self.decode_head(x, img_metas)
+
+        results = self.decode_head.get_bboxes(*outs, img_metas, rescale=rescale)
+        assert isinstance(results,dict), 'The return results should be a dict'
+        
+       
+        results_dict = {}
+        for return_type in results.keys():
+            if return_type == 'bbox':
+                labels = results['labels']
+                bbox_list = results['bbox']
+                bbox_results = [
+                    bbox2result(det_bboxes, det_labels, self.decode_head.num_things_classes)
+                    for det_bboxes, det_labels in zip(bbox_list,labels)
+                ]
+                results_dict['bbox'] = bbox_results
+            elif return_type == 'segm':
+                seg_list = results['segm']
+                labels = results['labels']
+         
+                masks_results = [
+                    mask2result(det_segm,det_labels,self.decode_head.num_things_classes)
+                        for det_segm, det_labels in zip(seg_list,labels)
+                ]
+                results_dict['segm'] = masks_results
+            elif return_type == 'panoptic':
+                results_dict['panoptic'] = results['panoptic']
+        
+        return results_dict
+
+        # """Simple test with single image."""
+        # seg_logit = self.inference(img, img_meta, rescale)
+        # seg_pred = seg_logit.argmax(dim=1)
+        # if torch.onnx.is_in_onnx_export():
+        #     # our inference backend only support 4D output
+        #     seg_pred = seg_pred.unsqueeze(0)
+        #     return seg_pred
+        # seg_pred = seg_pred.cpu().numpy()
+        # # unravel batch dim
+        # seg_pred = list(seg_pred)
+        # return seg_pred
 
     def aug_test(self, imgs, img_metas, rescale=True):
         """Test with augmentations.
