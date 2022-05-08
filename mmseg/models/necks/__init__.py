@@ -1,4 +1,4 @@
 from .segformer_adapter import SegFormerAdapter
-from .channel_mapper import ChannelMapper
+from .multisize_channel_mapper import MultisizeChannelMapper
 
-__all__ = ['SegFormerAdapter','ChannelMapper']
+__all__ = ['SegFormerAdapter','MultisizeChannelMapper']

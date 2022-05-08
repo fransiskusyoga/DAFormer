@@ -16,7 +16,7 @@ model = dict(
         style='pytorch',
        ),
     # neck=dict(
-    #     type='ChannelMapper',
+    #     type='MultisizeChannelMapper',
     #     in_channels=[256, 512, 1024, 2048],
     #     kernel_size=1,
     #     out_channels=[64, 128, 320, 512],
