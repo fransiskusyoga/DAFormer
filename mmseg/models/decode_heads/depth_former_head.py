@@ -134,18 +134,18 @@ class Attention(nn.Module):
         q = self.q(query).reshape(B, N,
                                   self.num_heads, C // self.num_heads).permute(
                                       0, 2, 1,
-                                      3).contiguous()  #.permute(2, 0, 3, 1, 4)
+                                      3).contiguous()  #.permute(2, 0, 3, 1, 4)  # B, NH, N, C/NH
         k = self.k(key).reshape(B, L,
                                 self.num_heads, C // self.num_heads).permute(
                                     0, 2, 1,
-                                    3).contiguous()  #.permute(2, 0, 3, 1, 4)
+                                    3).contiguous()  #.permute(2, 0, 3, 1, 4)  # B, NH, L, C/NH
 
         v = self.v(value).reshape(B, L,
                                   self.num_heads, C // self.num_heads).permute(
                                       0, 2, 1,
-                                      3).contiguous()  #.permute(2, 0, 3, 1, 4)
+                                      3).contiguous()  #.permute(2, 0, 3, 1, 4) # B, NH, L, C/NH
 
-        attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale
+        attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale # B, N, L, NH
         #print('key_padding', key_padding_mask.shape, attn.shape)
 
         attn = attn.permute(0, 2, 3, 1)
@@ -158,11 +158,11 @@ class Attention(nn.Module):
 
         feats_l2 = attn[:, :, wedge_1:wedge_2, :]
         feats_l3 = attn[:, :, wedge_2:, :]
-        feats_l1 = self.linear_l1(feats_l1)
+        feats_l1 = self.linear_l1(feats_l1) # B,NH,L1,N
         feats_l2 = self.linear_l2(feats_l2).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[1])  # B,NH, N,L
+            -1, self.num_heads, *hw_lvl[1])  # B,NH,N,L2
         feats_l3 = self.linear_l3(feats_l3).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[2])
+            -1, self.num_heads, *hw_lvl[2])  # B,NH,N,L3
         #print(feats_l2.shape)
         feats_l2 = F.interpolate(feats_l2, size=hw_lvl[0],
                                  mode='bilinear').permute(0, 2, 3, 1).reshape(
@@ -234,14 +234,14 @@ class AttentionTail(nn.Module):
         q = self.q(query).reshape(B, N,
                                   self.num_heads, C // self.num_heads).permute(
                                       0, 2, 1,
-                                      3).contiguous()  #.permute(2, 0, 3, 1, 4)
+                                      3).contiguous()  #.permute(2, 0, 3, 1, 4) # B, NH, N, C/NH
         k = self.k(key).reshape(B, L,
                                 self.num_heads, C // self.num_heads).permute(
                                     0, 2, 1,
-                                    3).contiguous()  #.permute(2, 0, 3, 1, 4)
-        attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale
+                                    3).contiguous()  #.permute(2, 0, 3, 1, 4) # B, NH, L, C/NH
+        attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale # B, NH, N, L
 
-        attn = attn.permute(0, 2, 3, 1)
+        attn = attn.permute(0, 2, 3, 1) # B, N, L, NH
         #print('attn',attn.shape,hw_lvl)
         wedge_1 = hw_lvl[0][0] * hw_lvl[0][1]
         wedge_2 = wedge_1 + hw_lvl[1][0] * hw_lvl[1][1]
@@ -250,11 +250,11 @@ class AttentionTail(nn.Module):
         feats_l2 = attn[:, :, wedge_1:wedge_2, :]
         feats_l3 = attn[:, :, wedge_2:, :]
 
-        feats_l1 = self.linear_l1(feats_l1)
+        feats_l1 = self.linear_l1(feats_l1)  # B,N,L1,NH
         feats_l2 = self.linear_l2(feats_l2).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[1])  # B,NH, N,L
+            -1, self.num_heads, *hw_lvl[1])  # B,NH,N,L2
         feats_l3 = self.linear_l3(feats_l3).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[2])
+            -1, self.num_heads, *hw_lvl[2])  # B,NH,N,L3
         #print(feats_l2.shape)
         feats_l2 = F.interpolate(feats_l2, size=hw_lvl[0],
                                  mode='bilinear').permute(0, 2, 3, 1).reshape(
@@ -362,25 +362,13 @@ class DropPath(nn.Module):
 
 
 @HEADS.register_module()
-class MaskFormerHead(BaseDecodeHead):
+class DepthFormerHead(BaseDecodeHead):
     def __init__(self,
-                 depth_model=16,
                  num_head=2,
                  num_layers=1,
                  self_attn=False,
                  **kwargs):
-                #  cfg=None, #
-                #  d_model=16, #
-                #  nhead=2, #
-                #  num_encoder_layers=6,
-                #  num_decoder_layers=1, #
-                #  dim_feedforward=64,
-                #  dropout=0.1,
-                #  activation="relu",
-                #  normalize_before=False,
-                #  return_intermediate_dec=False,
-                #  self_attn=False): #
-        super(MaskFormerHead, self).__init__(
+        super(DepthFormerHead, self).__init__(
             input_transform='multiple_select', **kwargs)
 
         # some Default Falue
@@ -395,6 +383,7 @@ class MaskFormerHead(BaseDecodeHead):
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
         act_layer = None
         act_layer = act_layer or nn.GELU
+        depth_model = self.in_channels[0]
         block = Block(dim=depth_model,
                       num_heads=num_head,
                       mlp_ratio=mlp_ratio,
@@ -413,7 +402,10 @@ class MaskFormerHead(BaseDecodeHead):
                                     qk_scale=qk_scale,
                                     attn_drop=attn_drop_rate,
                                     proj_drop=0)
-
+        self.stuff_query = nn.Embedding(self.num_classes,
+                                        self.in_channels[0])
+        self.stuff_query_pos = nn.Embedding(self.num_classes,
+                                        self.in_channels[0])
         self._reset_parameters()
 
     def _reset_parameters(self):
@@ -427,10 +419,29 @@ class MaskFormerHead(BaseDecodeHead):
         else:
             return tensor + pos
         #return tensor if pos is None else tensor + pos
+    
+    def forward(self, inputs):
+        cat_list = []
+        batch_sz = inputs[0].shape[0]
+        channel_sz = self.in_channels[0]
+        
+        hw_lvl = []
+        for i,data in enumerate(inputs):
+            if i in self.in_index:
+                hw_lvl.append(data.shape[2:])
+                cat_list.append(data.permute(0,2,3,1).reshape(batch_sz, -1, channel_sz))
+        streched_inp = torch.cat(cat_list, dim=1)
+        query = [self.stuff_query.weight.unsqueeze(0) for i in range(batch_sz)]
+        query = torch.cat(query, dim=0)
+        query_pos = [self.stuff_query_pos.weight.unsqueeze(0) for i in range(batch_sz)]
+        query_pos = torch.cat(query_pos, dim=0)
+        result, _, _ = self.calculate(
+            streched_inp, None, None, query, query_pos, hw_lvl)
+        return result
+
     @force_fp32(apply_to=('memory', 'mask_memory', 'pos_memory', 'query_embed',
                           'mask_query', 'pos_query'))
-    def forward(self, memory, mask_memory, pos_memory, query_embed, mask_query,
-                pos_query, hw_lvl):
+    def calculate(self, memory, mask_memory, pos_memory, query_embed, pos_query, hw_lvl):
         if mask_memory is not None and isinstance(mask_memory, torch.Tensor):
             mask_memory = mask_memory.to(torch.bool)
         masks = []

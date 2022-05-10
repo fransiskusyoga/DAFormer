@@ -17,7 +17,7 @@ class MultisizeChannelMapper(BaseModule):
                  act_cfg=dict(type='ReLU'),
                  init_cfg=dict(
                      type='Xavier', layer='Conv2d', distribution='uniform')):
-        super(ChannelMapper, self).__init__(init_cfg)
+        super(MultisizeChannelMapper, self).__init__(init_cfg)
         assert isinstance(in_channels, list)
         assert isinstance(out_channels, list)
         assert len(in_channels) == len(out_channels)

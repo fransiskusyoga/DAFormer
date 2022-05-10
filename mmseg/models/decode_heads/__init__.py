@@ -8,6 +8,8 @@ from .psp_head import PSPHead
 from .segformer_head import SegFormerHead
 from .sep_aspp_head import DepthwiseSeparableASPPHead
 from .uper_head import UPerHead
+from .depth_former_head import DepthFormerHead
+from .mask_former_head import MaskFormerHead
 
 __all__ = [
     'FCNHead',
@@ -20,4 +22,6 @@ __all__ = [
     'SegFormerHead',
     'DAFormerHead',
     'ISAHead',
+    'DepthFormerHead',
+    'MaskFormerHead',
 ]
