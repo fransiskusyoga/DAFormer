@@ -138,7 +138,7 @@ class Attention(nn.Module):
         x = self.proj(x)
         x = self.proj_drop(x)
 
-        return x, mask
+        return x
 
 # AttentionTail is a cheap implementation that can make mask decoder 1 layer deeper.
 class AttentionTail(nn.Module): 
@@ -257,13 +257,13 @@ class Block(nn.Module):
         if self.self_attn:
             query = query + self.drop_path(self.self_attention(query))
             query = self.norm3(query)
-        x, mask = self.attn(query, key, value, hw_lvl=hw_lvl)
+        x = self.attn(query, key, value, hw_lvl=hw_lvl)
         query = query + self.drop_path(x)
         query = self.head_norm1(query)
 
         query = query + self.drop_path(self.mlp(query))
         query = self.head_norm2(query)
-        return query, mask
+        return query
 
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
@@ -366,39 +366,35 @@ class DualFormerHead(BaseDecodeHead):
         batch_sz = inputs[0].shape[0]
         channel_sz = self.in_channels[0]
         
+        # generate hw_lvl and streched input
         hw_lvl = []
         for i,data in enumerate(inputs):
             if i in self.in_index:
                 hw_lvl.append(data.shape[-2:])
                 cat_list.append(data.permute(0,2,3,1).reshape(batch_sz, -1, channel_sz))
         streched_inp = torch.cat(cat_list, dim=1)
+
+        # get semantic query
         query = [self.stuff_query.weight.unsqueeze(0) for i in range(batch_sz)]
         query = torch.cat(query, dim=0)
         query_pos = [self.stuff_query_pos.weight.unsqueeze(0) for i in range(batch_sz)]
         query_pos = torch.cat(query_pos, dim=0)
-        result, _, _ = self.calculate(
-            streched_inp, None, None, query, query_pos, hw_lvl)
+
+        result = self.calculate(streched_inp, None, query, query_pos, hw_lvl)
         result =  result.reshape(batch_sz, -1, hw_lvl[0][0], hw_lvl[0][1])
         return result
 
-    @force_fp32(apply_to=('memory', 'mask_memory', 'pos_memory', 'query_embed',
+    @force_fp32(apply_to=('memory', 'pos_memory', 'query_embed',
                           'mask_query', 'pos_query'))
-    def calculate(self, memory, mask_memory, pos_memory, query_embed, pos_query, hw_lvl):
-        if mask_memory is not None and isinstance(mask_memory, torch.Tensor):
-            mask_memory = mask_memory.to(torch.bool)
-        masks = []
-        inter_query = []
+    def calculate(self, memory, pos_memory, query_embed, pos_query, hw_lvl):
+
         for i, block in enumerate(self.blocks):
-            query_embed, mask = block(self.with_pos_embed(
-                query_embed, pos_query),
-                                      self.with_pos_embed(memory, pos_memory),
-                                      memory,
-                                      hw_lvl=hw_lvl)
-            masks.append(mask)
-            inter_query.append(query_embed)
-            #if i == 1:
-            #    return mask, masks, inter_query
+            query_embed = block(self.with_pos_embed(query_embed, pos_query),
+                                self.with_pos_embed(memory, pos_memory),
+                                memory,
+                                hw_lvl=hw_lvl)
+
         attn = self.attnen(self.with_pos_embed(query_embed, pos_query),
                            self.with_pos_embed(memory, pos_memory),
                            hw_lvl=hw_lvl)
-        return attn, masks, inter_query
+        return attn

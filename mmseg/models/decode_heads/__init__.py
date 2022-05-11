@@ -1,3 +1,4 @@
+import imp
 from .aspp_head import ASPPHead
 from .da_head import DAHead
 from .daformer_head import DAFormerHead
@@ -10,6 +11,7 @@ from .sep_aspp_head import DepthwiseSeparableASPPHead
 from .uper_head import UPerHead
 from .depth_former_head import DepthFormerHead
 from .mask_former_head import MaskFormerHead
+from .dual_former_head import DualFormerHead
 
 __all__ = [
     'FCNHead',
@@ -24,4 +26,5 @@ __all__ = [
     'ISAHead',
     'DepthFormerHead',
     'MaskFormerHead',
+    'DualFormerHead'
 ]
