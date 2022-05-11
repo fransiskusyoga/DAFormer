@@ -43,47 +43,6 @@ class Mlp(nn.Module):
         x = self.drop(x)
         return x
 
-
-class SelfAttention(nn.Module):
-    def __init__(self,
-                 dim,
-                 num_heads=2,
-                 qkv_bias=False,
-                 qk_scale=None,
-                 attn_drop=0.,
-                 proj_drop=0.):
-        super().__init__()
-        self.num_heads = num_heads
-        head_dim = dim // num_heads
-        self.fp16_enabled = False
-        self.scale = qk_scale or head_dim**-0.5
-
-        self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
-        self.attn_drop = nn.Dropout(attn_drop)
-        self.proj = nn.Linear(dim, dim)
-        self.proj_drop = nn.Dropout(proj_drop)
-
-    @force_fp32(apply_to=('x', ))
-    def forward(self, x):
-        B, N, C = x.shape
-
-        qkv = self.qkv(x).reshape(B, N, 3, self.num_heads,
-                                  C // self.num_heads).permute(2, 0, 3, 1,
-                                                               4).contiguous()
-        q, k, v = qkv[0], qkv[1], qkv[
-            2]  # make torchscript happy (cannot use tensor as tuple)
-
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
-
-        return x
-
-
 class Attention(nn.Module):
     def __init__(self,
                  dim,
@@ -222,12 +181,11 @@ class Block(nn.Module):
                  attn_drop=0.,
                  drop_path=0.,
                  act_layer=nn.GELU,
-                 norm_layer=nn.LayerNorm,
-                 self_attn=False):
+                 norm_layer=nn.LayerNorm
+                 ):
         super().__init__()
         self.fp16_enabled = False
         self.head_norm1 = norm_layer(dim)
-        self.self_attn = self_attn
         self.attn = Attention(dim,
                               num_heads=num_heads,
                               qkv_bias=qkv_bias,
@@ -244,20 +202,10 @@ class Block(nn.Module):
                        hidden_features=mlp_hidden_dim,
                        act_layer=act_layer,
                        drop=drop)
-        if self.self_attn:
-            self.self_attention = SelfAttention(dim,
-                                                num_heads=num_heads,
-                                                qkv_bias=qkv_bias,
-                                                qk_scale=qk_scale,
-                                                attn_drop=attn_drop,
-                                                proj_drop=drop)
-            self.norm3 = norm_layer(dim)
+
 
     @force_fp32(apply_to=('query', 'key', 'value'))
     def forward(self, query, key, value, hw_lvl=None):
-        if self.self_attn:
-            query = query + self.drop_path(self.self_attention(query))
-            query = self.norm3(query)
         x = self.attn(query, key, value, hw_lvl=hw_lvl)
         query = query + self.drop_path(x)
         query = self.head_norm1(query)
@@ -308,7 +256,6 @@ class DualFormerHead(BaseDecodeHead):
     def __init__(self,
                  num_head=2,
                  num_layers=1,
-                 self_attn=False,
                  **kwargs):
         super(DualFormerHead, self).__init__(
             input_transform='multiple_select', **kwargs)
@@ -335,8 +282,7 @@ class DualFormerHead(BaseDecodeHead):
                       attn_drop=attn_drop_rate,
                       drop_path=0,
                       norm_layer=norm_layer,
-                      act_layer=act_layer,
-                      self_attn=self_attn)
+                      act_layer=act_layer)
         self.blocks = _get_clones(block, num_layers)
         self.attnen = AttentionTail(depth_model,
                                     num_heads=num_head,

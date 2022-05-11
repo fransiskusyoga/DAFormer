@@ -3,7 +3,7 @@
 #SBATCH  --gres=gpu:1
 #SBATCH  --mem=30G
 
-source /scratch_net/biwidl312/ywibowo/daformer_env2/bin/activate
+source env/bin/activate
 #python -m demo.image_demo demo/demo.png work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/211108_1622_gta2cs_daformer_s0_7f24c.json work_dirs/211108_1622_gta2cs_daformer_s0_7f24c/latest.pth
 #cp -R -v /srv/beegfs02/scratch/uda2022/data/datasets/synthia/ /scratch_net/biwidl312_second/ywibowo/datasets
 
@@ -22,7 +22,8 @@ source /scratch_net/biwidl312/ywibowo/daformer_env2/bin/activate
 #python run_experiments.py --config configs/daformer/synthia2cs_backbone_resnet101.py 
 #python run_experiments.py --config configs/daformer/gta2cs_backbone_pvtb5.py 
 #python run_experiments.py --config configs/daformer/synthia2cs_backbone_pvtb5.py 
-python run_experiments.py --config configs/daformer/gta2cs_depthformer_mitb5.py 
+#python run_experiments.py --config configs/daformer/gta2cs_depthformer_mitb5.py 
+python run_experiments.py --config configs/daformer/gta2cs_maskformer_mitb5.py 
 
 # python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py
 # python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_r101_s0.py
