@@ -103,22 +103,6 @@ class Attention(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
-        self.linear_l1 = nn.Sequential(
-            nn.Linear(self.num_heads, self.num_heads),
-            nn.ReLU(),
-        )
-        self.linear_l2 = nn.Sequential(
-            nn.Linear(self.num_heads, self.num_heads),
-            nn.ReLU(),
-        )
-        self.linear_l3 = nn.Sequential(
-            nn.Linear(self.num_heads, self.num_heads),
-            nn.ReLU(),
-        )
-        self.linear = nn.Sequential(
-            nn.Linear(self.num_heads * 3, 1),
-            nn.ReLU(),
-        )
         self._reset_parameters()
 
     def _reset_parameters(self):
@@ -146,37 +130,7 @@ class Attention(nn.Module):
                                       3).contiguous()  #.permute(2, 0, 3, 1, 4) # B, NH, L, C/NH
 
         attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale # B, NH, N, L
-        #print('key_padding', attn.shape)
-
-        attn = attn.permute(0, 2, 3, 1) # B, N, L, NH
-
-        #print('attn',attn.shape,hw_lvl)
-        wedge_1 = hw_lvl[0][0] * hw_lvl[0][1]
-        wedge_2 = wedge_1 + hw_lvl[1][0] * hw_lvl[1][1]
-        #print(wedge_1,wedge_2)
-        feats_l1 = attn[:, :, :wedge_1, :] # B,N,L1,NH
-
-        feats_l2 = attn[:, :, wedge_1:wedge_2, :] # B,N,L2,NH
-        feats_l3 = attn[:, :, wedge_2:, :] # B,N,L3,NH
-        feats_l1 = self.linear_l1(feats_l1) 
-        feats_l2 = self.linear_l2(feats_l2).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[1])  
-        feats_l3 = self.linear_l3(feats_l3).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[2])  
-        #print(feats_l2.shape)
-        feats_l2 = F.interpolate(feats_l2, size=hw_lvl[0],
-                                 mode='bilinear').permute(0, 2, 3, 1).reshape(
-                                     B, N, wedge_1, self.num_heads)
-        feats_l3 = F.interpolate(feats_l3, size=hw_lvl[0],
-                                 mode='bilinear').permute(0, 2, 3, 1).reshape(
-                                     B, N, wedge_1, self.num_heads)
-
-        #print(feats_l1.shape,feats_l2.shape,feats_l3.shape)
-
-        new_feats = torch.cat([feats_l1, feats_l2, feats_l3], -1)
-        mask = self.linear(new_feats)
-
-        attn = attn.permute(0, 3, 1, 2) # B, NH, N, L
+        
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn) 
 
@@ -193,6 +147,7 @@ class AttentionTail(nn.Module):
                  num_heads=2,
                  qkv_bias=False,
                  qk_scale=None,
+                 n_channels=4,
                  attn_drop=0.,
                  proj_drop=0.):
         super().__init__()
@@ -203,18 +158,11 @@ class AttentionTail(nn.Module):
         self.q = nn.Linear(dim, dim, bias=qkv_bias)
         self.k = nn.Linear(dim, dim, bias=qkv_bias)
 
-        self.linear_l1 = nn.Sequential(
+        linear_l = nn.Sequential(
             nn.Linear(self.num_heads, self.num_heads),
             nn.ReLU(),
         )
-        self.linear_l2 = nn.Sequential(
-            nn.Linear(self.num_heads, self.num_heads),
-            nn.ReLU(),
-        )
-        self.linear_l3 = nn.Sequential(
-            nn.Linear(self.num_heads, self.num_heads),
-            nn.ReLU(),
-        )
+        self.linear_l = _get_clones(linear_l,n_channels)
         self.linear = nn.Sequential(
             nn.Linear(self.num_heads * 3, 1),
             nn.ReLU(),
@@ -243,27 +191,20 @@ class AttentionTail(nn.Module):
 
         attn = attn.permute(0, 2, 3, 1) # B, N, L, NH
         #print('attn',attn.shape,hw_lvl)
-        wedge_1 = hw_lvl[0][0] * hw_lvl[0][1]
-        wedge_2 = wedge_1 + hw_lvl[1][0] * hw_lvl[1][1]
-        #print(wedge_1,wedge_2)
-        feats_l1 = attn[:, :, :wedge_1, :]
-        feats_l2 = attn[:, :, wedge_1:wedge_2, :]
-        feats_l3 = attn[:, :, wedge_2:, :]
+        wedge_curr = 0
+        feats_l = []
+        for i in range(len(hw_lvl)):
+            wedge_next = wedge_curr + hw_lvl[i][0] * hw_lvl[i][1]
+            feats_l.append(attn[:, :, wedge_curr:wedge_next, :])
 
-        feats_l1 = self.linear_l1(feats_l1)  # B,N,L1,NH
-        feats_l2 = self.linear_l2(feats_l2).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[1])  # B,NH,N,L2
-        feats_l3 = self.linear_l3(feats_l3).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[2])  # B,NH,N,L3
-        #print(feats_l2.shape)
-        feats_l2 = F.interpolate(feats_l2, size=hw_lvl[0],
-                                 mode='bilinear').permute(0, 2, 3, 1).reshape(
-                                     B, N, wedge_1, self.num_heads)
-        feats_l3 = F.interpolate(feats_l3, size=hw_lvl[0],
-                                 mode='bilinear').permute(0, 2, 3, 1).reshape(
-                                     B, N, wedge_1, self.num_heads)
-        #print(feats_l1.shape,feats_l2.shape,feats_l3.shape)
-        new_feats = torch.cat([feats_l1, feats_l2, feats_l3], -1)
+            feats_l[i] = self.linear_l[i](feats_l[i]).permute(0, 1, 3, 2).reshape(
+                -1, self.num_heads, *hw_lvl[i])  # B*N,NH,H_i,W_i
+
+            feats_l[i] = F.interpolate(feats_l[i], size=hw_lvl[0],
+                                        mode='bilinear').permute(0, 2, 3, 1).reshape(
+                                            B, N, -1, self.num_heads)
+
+        new_feats = torch.cat(feats_l, -1)
         mask = self.linear(new_feats)
 
         return mask
