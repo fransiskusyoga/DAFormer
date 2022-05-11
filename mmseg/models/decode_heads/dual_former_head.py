@@ -203,6 +203,7 @@ class AttentionTail(nn.Module):
             feats_l[i] = F.interpolate(feats_l[i], size=hw_lvl[0],
                                         mode='bilinear').permute(0, 2, 3, 1).reshape(
                                             B, N, -1, self.num_heads)
+            wedge_curr = wedge_next
 
         new_feats = torch.cat(feats_l, -1)
         mask = self.linear(new_feats)
@@ -342,7 +343,8 @@ class DualFormerHead(BaseDecodeHead):
                                     qkv_bias=qkv_bias,
                                     qk_scale=qk_scale,
                                     attn_drop=attn_drop_rate,
-                                    proj_drop=0)
+                                    proj_drop=0,
+                                    n_channels = len(self.in_channels))
         self.stuff_query = nn.Embedding(self.num_classes,
                                         self.in_channels[0])
         self.stuff_query_pos = nn.Embedding(self.num_classes,
