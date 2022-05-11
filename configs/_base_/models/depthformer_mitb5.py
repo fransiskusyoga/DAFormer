@@ -17,7 +17,7 @@ model = dict(
         norm_cfg=dict(type='GN', num_groups=32)
         ),
     decode_head=dict(
-        type='MaskFormerHead',
+        type='DepthFormerHead',
         in_channels=[256,256,256], # only recive list len 3 with all 3 numbers are the same
         #hw_lvl=[[128,128],[64,64],[32,32],[16,16]],
         in_index=[0, 2, 3], # must be list of lenght 3

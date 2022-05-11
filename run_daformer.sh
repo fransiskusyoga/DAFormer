@@ -22,7 +22,7 @@ source /scratch_net/biwidl312/ywibowo/daformer_env2/bin/activate
 #python run_experiments.py --config configs/daformer/synthia2cs_backbone_resnet101.py 
 #python run_experiments.py --config configs/daformer/gta2cs_backbone_pvtb5.py 
 #python run_experiments.py --config configs/daformer/synthia2cs_backbone_pvtb5.py 
-python run_experiments.py --config configs/daformer/gta2cs_maskformer_mitb5.py 
+python run_experiments.py --config configs/daformer/gta2cs_depthformer_mitb5.py 
 
 # python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0.py
 # python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_r101_s0.py

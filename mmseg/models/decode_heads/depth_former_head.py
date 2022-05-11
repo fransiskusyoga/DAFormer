@@ -428,7 +428,7 @@ class DepthFormerHead(BaseDecodeHead):
         hw_lvl = []
         for i,data in enumerate(inputs):
             if i in self.in_index:
-                hw_lvl.append(data.shape[2:])
+                hw_lvl.append(data.shape[-2:])
                 cat_list.append(data.permute(0,2,3,1).reshape(batch_sz, -1, channel_sz))
         streched_inp = torch.cat(cat_list, dim=1)
         query = [self.stuff_query.weight.unsqueeze(0) for i in range(batch_sz)]
@@ -437,6 +437,7 @@ class DepthFormerHead(BaseDecodeHead):
         query_pos = torch.cat(query_pos, dim=0)
         result, _, _ = self.calculate(
             streched_inp, None, None, query, query_pos, hw_lvl)
+        result =  result.reshape(batch_sz, -1, hw_lvl[0][0], hw_lvl[0][1])
         return result
 
     @force_fp32(apply_to=('memory', 'mask_memory', 'pos_memory', 'query_embed',

@@ -61,21 +61,18 @@ class MaskFormerHead(BaseDecodeHead):
         hw_lvl = []
         mlvl_masks = []
         mlvl_positional_encodings = []
-        print([a.shape for a in x])
         for feat in x:
             hw_lvl.append(
                 feat.shape[-2:])
             mlvl_masks.append(
                 x[0].new_zeros((batch_size,*feat.shape[-2:])).to(torch.bool))
-            print(mlvl_masks[-1].shape)
             mlvl_positional_encodings.append(
                 self.positional_encoding(mlvl_masks[-1]))
         
         # Step 2: Run The transformer (get bbox and intermidiate vals for mask head)
         # Fetch the querry mebedding
         query_embeds = self.query_embedding.weight
-        (memory, memory_pos, memory_mask, query_pos), hs, init_reference, inter_references, \
-        enc_outputs_class, enc_outputs_coord = self.transformer(
+        memory, memory_mask = self.transformer(
             x,
             mlvl_masks,
             query_embeds,
@@ -86,16 +83,13 @@ class MaskFormerHead(BaseDecodeHead):
         # The intermidiate values are packed to varaible args_tuple
         # we should feed these to mask deocder.
         memory = memory.permute(1, 0, 2)
-        query = hs[-1].permute(1, 0, 2)
-        query_pos = query_pos.permute(1, 0, 2)
-        memory_pos = memory_pos.permute(1, 0, 2)
 
+        # remove the information from the last image scale
         len_last_feat = hw_lvl[-1][0] * hw_lvl[-1][1]
         memory      = memory[:, :-len_last_feat, :]
         memory_mask = memory_mask[:, :-len_last_feat]
-        memory_pos  = memory_pos[:, :-len_last_feat, :]
 
-        # -fetch stuff query
+        # fetch stuff query
         query_mask, query_mask_pos = torch.split(self.query_mask.weight,
                                                    self.embed_dims,
                                                    dim=1)
@@ -104,9 +98,9 @@ class MaskFormerHead(BaseDecodeHead):
 
         mask, mask_inter, query_inter = self.mask_head(
             memory, memory_mask, None, query_mask, None, query_mask_pos, hw_lvl=hw_lvl)
-
-        print("Out of memory problem")
-        assert False
+        
+        mask =  mask.reshape(batch_size, -1, hw_lvl[0][0], hw_lvl[0][1])
+        
         return mask
 
        
