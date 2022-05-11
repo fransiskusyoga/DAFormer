@@ -145,24 +145,24 @@ class Attention(nn.Module):
                                       0, 2, 1,
                                       3).contiguous()  #.permute(2, 0, 3, 1, 4) # B, NH, L, C/NH
 
-        attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale # B, N, L, NH
+        attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale # B, NH, N, L
         #print('key_padding', key_padding_mask.shape, attn.shape)
 
-        attn = attn.permute(0, 2, 3, 1)
+        attn = attn.permute(0, 2, 3, 1) # B, N, L, NH
 
         #print('attn',attn.shape,hw_lvl)
         wedge_1 = hw_lvl[0][0] * hw_lvl[0][1]
         wedge_2 = wedge_1 + hw_lvl[1][0] * hw_lvl[1][1]
         #print(wedge_1,wedge_2)
-        feats_l1 = attn[:, :, :wedge_1, :]
+        feats_l1 = attn[:, :, :wedge_1, :] # B,N,L1,NH
 
-        feats_l2 = attn[:, :, wedge_1:wedge_2, :]
-        feats_l3 = attn[:, :, wedge_2:, :]
-        feats_l1 = self.linear_l1(feats_l1) # B,NH,L1,N
+        feats_l2 = attn[:, :, wedge_1:wedge_2, :] # B,N,L2,NH
+        feats_l3 = attn[:, :, wedge_2:, :] # B,N,L3,NH
+        feats_l1 = self.linear_l1(feats_l1) 
         feats_l2 = self.linear_l2(feats_l2).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[1])  # B,NH,N,L2
+            -1, self.num_heads, *hw_lvl[1])  
         feats_l3 = self.linear_l3(feats_l3).permute(0, 1, 3, 2).reshape(
-            -1, self.num_heads, *hw_lvl[2])  # B,NH,N,L3
+            -1, self.num_heads, *hw_lvl[2])  
         #print(feats_l2.shape)
         feats_l2 = F.interpolate(feats_l2, size=hw_lvl[0],
                                  mode='bilinear').permute(0, 2, 3, 1).reshape(
@@ -176,9 +176,9 @@ class Attention(nn.Module):
         new_feats = torch.cat([feats_l1, feats_l2, feats_l3], -1)
         mask = self.linear(new_feats)
 
-        attn = attn.permute(0, 3, 1, 2)
+        attn = attn.permute(0, 3, 1, 2) # B, NH, N, L
         attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
+        attn = self.attn_drop(attn) 
 
         x = (attn @ v).transpose(1, 2).contiguous().reshape(B, N, C)
         x = self.proj(x)
