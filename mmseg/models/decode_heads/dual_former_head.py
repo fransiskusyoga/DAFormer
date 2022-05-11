@@ -127,7 +127,7 @@ class Attention(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     @force_fp32(apply_to=('query', 'key', 'value'))
-    def forward(self, query, key, value, key_padding_mask, hw_lvl):
+    def forward(self, query, key, value, hw_lvl):
         B, N, C = query.shape
         _, L, _ = key.shape
         #print('query, key, value', query.shape, value.shape, key.shape)
@@ -146,7 +146,7 @@ class Attention(nn.Module):
                                       3).contiguous()  #.permute(2, 0, 3, 1, 4) # B, NH, L, C/NH
 
         attn = (q @ k.transpose(-2, -1).contiguous()) * self.scale # B, NH, N, L
-        #print('key_padding', key_padding_mask.shape, attn.shape)
+        #print('key_padding', attn.shape)
 
         attn = attn.permute(0, 2, 3, 1) # B, N, L, NH
 
@@ -227,7 +227,7 @@ class AttentionTail(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     @force_fp32(apply_to=('query', 'key'))
-    def forward(self, query, key, key_padding_mask, hw_lvl=None):
+    def forward(self, query, key, hw_lvl=None):
         B, N, C = query.shape
         _, L, _ = key.shape
         #print('query, key, value', query.shape, value.shape, key.shape)
@@ -312,11 +312,11 @@ class Block(nn.Module):
             self.norm3 = norm_layer(dim)
 
     @force_fp32(apply_to=('query', 'key', 'value'))
-    def forward(self, query, key, value, key_padding_mask=None, hw_lvl=None):
+    def forward(self, query, key, value, hw_lvl=None):
         if self.self_attn:
             query = query + self.drop_path(self.self_attention(query))
             query = self.norm3(query)
-        x, mask = self.attn(query, key, value, key_padding_mask, hw_lvl=hw_lvl)
+        x, mask = self.attn(query, key, value, hw_lvl=hw_lvl)
         query = query + self.drop_path(x)
         query = self.head_norm1(query)
 
@@ -452,7 +452,6 @@ class DualFormerHead(BaseDecodeHead):
                 query_embed, pos_query),
                                       self.with_pos_embed(memory, pos_memory),
                                       memory,
-                                      key_padding_mask=mask_memory,
                                       hw_lvl=hw_lvl)
             masks.append(mask)
             inter_query.append(query_embed)
@@ -460,6 +459,5 @@ class DualFormerHead(BaseDecodeHead):
             #    return mask, masks, inter_query
         attn = self.attnen(self.with_pos_embed(query_embed, pos_query),
                            self.with_pos_embed(memory, pos_memory),
-                           key_padding_mask=mask_memory,
                            hw_lvl=hw_lvl)
         return attn, masks, inter_query
