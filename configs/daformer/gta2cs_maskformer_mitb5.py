@@ -43,8 +43,9 @@ runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
 evaluation = dict(interval=4000, metric='mIoU')
-#optimizer = dict(weight_decay=0.0001)
+optimizer = dict(weight_decay=0.0001)
 #optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
+data = dict(samples_per_gpu=1)
 # Meta Information for Result Analysis
 name = 'gta2cs_maskformer_mitb5'
 exp = 'basic'
