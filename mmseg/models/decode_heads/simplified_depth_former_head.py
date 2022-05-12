@@ -1,6 +1,7 @@
 """
 Copy-paste from torch.nn.Transformer, timm, with modifications:
 """
+from audioop import bias
 import copy
 from typing import Optional, List
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
@@ -123,7 +124,7 @@ class AttentionTail(nn.Module):
         )
         self.linear_l = _get_clones(linear_l,n_channels)
         self.linear = nn.Sequential(
-            nn.Linear(self.num_heads * 3, 1),
+            nn.Linear(self.num_heads * n_channels, 1),
             nn.ReLU(),
         )
         self._reset_parameters()
@@ -161,7 +162,7 @@ class AttentionTail(nn.Module):
 
             feats_l[i] = F.interpolate(feats_l[i], size=hw_lvl[0],
                                         mode='bilinear').permute(0, 2, 3, 1).reshape(
-                                            B, N, -1, self.num_heads)
+                                            B, N, -1, self.num_heads) # B,N,H_0*W_0,NH
             wedge_curr = wedge_next
 
         new_feats = torch.cat(feats_l, -1)

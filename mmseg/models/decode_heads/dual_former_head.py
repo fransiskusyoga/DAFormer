@@ -1,6 +1,7 @@
 """
 Copy-paste from torch.nn.Transformer, timm, with modifications:
 """
+from audioop import bias
 import copy
 from typing import Optional, List
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
@@ -43,7 +44,95 @@ class Mlp(nn.Module):
         x = self.drop(x)
         return x
 
-class Attention(nn.Module):
+class MaskAttention(nn.Module):
+    def __init__(self,
+                 dim,
+                 n_channels,
+                 kv_reduct =16,
+                 q_reduct =4,
+                 emb_dim=128,
+                 n_heads = 4,
+                 qkv_bias=False,
+                 qk_scale=None,
+                 attn_drop=0,
+                 proj_drop=0
+                 ):
+        super().__init__()
+        total_dim = n_channels*dim
+        self.total_dim = total_dim
+        self.emb_dim = emb_dim
+        self.dim = dim
+        self.n_heads = n_heads
+        self.scale = qk_scale or 1.0/math.sqrt(emb_dim)
+        self.attn_drop = nn.Dropout(attn_drop)
+        self.proj_drop = nn.Dropout(proj_drop)
+        self.conv_q = nn.Conv2d(
+            total_dim, n_heads*emb_dim, q_reduct, stride=q_reduct, padding='valid', bias=qkv_bias)
+        self.conv_k = nn.Conv2d(
+            total_dim, n_heads*emb_dim, kv_reduct, stride=kv_reduct, padding='valid', bias=qkv_bias)
+        self.conv_v = nn.Conv2d(
+            total_dim, n_heads*total_dim, kv_reduct, stride=kv_reduct, padding='valid', bias=qkv_bias)
+        self.aggregator = nn.Conv2d(
+            n_heads, 1, 1, bias=False) #kernel=1 output=1 channel
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p)
+            
+    def forward(self, x, hw_lvl):
+        # Reshape flaten input to image, input shape x=[B,L,C] 
+        # B=batchsize, L=total pixels from mutiple levels, C=channel dimension
+        B,_,C = x.shape
+        x = x.permute(0,2,1) # [B,C,L]
+        wedge_curr = 0
+        imgs = []
+        for i in range(len(hw_lvl)):
+            wedge_next = wedge_curr + hw_lvl[i][0] * hw_lvl[i][1]
+
+            img = x[:, :, wedge_curr:wedge_next].reshape(B,C,*hw_lvl[i]) # [B,C,H_i,W_i]
+            img = F.interpolate(img, size=hw_lvl[0], mode='bilinear') # [B,C,H_0,W_0]
+            imgs.append(img)
+
+            wedge_curr = wedge_next
+
+        all_img = torch.cat(imgs, 1) # [B,TD,H_0,W_0]
+
+        # Main Calculation
+        # initial tranformation layer
+        # L0 = H_0 * W_0 / q_reduct / q_reduct
+        # LR0 =  H_0 * W_0 / kv_reduct / kv_reduct
+        ED = self.emb_dim
+        NH = self.n_heads
+        TD = self.total_dim
+        k = self.conv_k(all_img).reshape(B,NH,ED,-1) # [B,NH,ED,LR0]
+        q = self.conv_q(all_img).reshape(B,NH,ED,-1).permute(0,1,3,2).contiguous() # [B,NH,L0,ED]
+        v = self.conv_v(all_img).reshape(B,NH,TD,-1).permute(0,1,3,2).contiguous() # [B,NH,LR0,TD]
+
+        # attention calculation
+        attn = (q @ k)* self.scale # [B,NH,L0,LR0] potentially the biggest object
+        attn = self.attn_drop(attn.softmax(dim=-1))
+        attn = attn @ v # [B,NH,L0,TD] potentially the biggest object
+
+        # Agregatting info from different head
+        attn = self.aggregator(attn).squeeze(1) # [B,L0,TD]
+        attn = attn.permute(0,2,1).contiguous() # [B,TD,L0]
+
+        # Make it the simillar size with the input
+        flat_imgs = []
+        for i in range(len(hw_lvl)):
+            flat_img = attn[:,i*self.dim:(i+1)*self.dim,:].reshape(B,self.dim,*hw_lvl[0]) # [B,C,H_0,W_0]
+            flat_img = F.interpolate(img, size=hw_lvl[i], mode='bilinear') # [B,C,H_i,W_i]
+            flat_img = flat_img.reshape(B,self.dim,-1) # [B,C,H_i*W_i]
+            flat_imgs.append(flat_img)
+
+        all_flat_img = torch.cat(flat_imgs, -1).permute(0,2,1).contiguous() # [B,L,C]
+
+        result = self.proj_drop(all_flat_img)
+        return result
+
+class QueryAttention(nn.Module):
     def __init__(self,
                  dim,
                  num_heads=2,
@@ -123,7 +212,7 @@ class AttentionTail(nn.Module):
         )
         self.linear_l = _get_clones(linear_l,n_channels)
         self.linear = nn.Sequential(
-            nn.Linear(self.num_heads * 3, 1),
+            nn.Linear(self.num_heads * n_channels, 1),
             nn.ReLU(),
         )
         self._reset_parameters()
@@ -161,7 +250,7 @@ class AttentionTail(nn.Module):
 
             feats_l[i] = F.interpolate(feats_l[i], size=hw_lvl[0],
                                         mode='bilinear').permute(0, 2, 3, 1).reshape(
-                                            B, N, -1, self.num_heads)
+                                            B, N, -1, self.num_heads) # B,N,H_0*W_0,NH
             wedge_curr = wedge_next
 
         new_feats = torch.cat(feats_l, -1)
@@ -186,12 +275,13 @@ class Block(nn.Module):
         super().__init__()
         self.fp16_enabled = False
         self.head_norm1 = norm_layer(dim)
-        self.attn = Attention(dim,
+        self.query_attn = QueryAttention(dim,
                               num_heads=num_heads,
                               qkv_bias=qkv_bias,
                               qk_scale=qk_scale,
                               attn_drop=attn_drop,
                               proj_drop=drop)
+                 
         # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
 
         self.drop_path = DropPath(
@@ -206,13 +296,14 @@ class Block(nn.Module):
 
     @force_fp32(apply_to=('query', 'key', 'value'))
     def forward(self, query, key, value, hw_lvl=None):
-        x = self.attn(query, key, value, hw_lvl=hw_lvl)
-        query = query + self.drop_path(x)
+        query = self.query_attn(query, key, value, hw_lvl=hw_lvl)
+        query = query + self.drop_path(query)
         query = self.head_norm1(query)
 
         query = query + self.drop_path(self.mlp(query))
         query = self.head_norm2(query)
-        return query
+
+        return query,
 
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
@@ -336,13 +427,15 @@ class DualFormerHead(BaseDecodeHead):
                           'mask_query', 'pos_query'))
     def calculate(self, memory, pos_memory, query_embed, pos_query, hw_lvl):
 
+        key_value =  self.with_pos_embed(memory, pos_memory)
         for i, block in enumerate(self.blocks):
-            query_embed = block(self.with_pos_embed(query_embed, pos_query),
-                                self.with_pos_embed(memory, pos_memory),
-                                memory,
+            query_embed = block(
+                                self.with_pos_embed(query_embed, pos_query),
+                                key_value, # key
+                                key_value, # value
                                 hw_lvl=hw_lvl)
 
         attn = self.attnen(self.with_pos_embed(query_embed, pos_query),
-                           self.with_pos_embed(memory, pos_memory),
+                           key_value,
                            hw_lvl=hw_lvl)
         return attn
