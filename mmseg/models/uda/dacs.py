@@ -244,7 +244,7 @@ class DACS(UDADecorator):
         return feat_loss, feat_log
 
     def forward_train(self, img, img_metas, gt_semantic_seg, target_img,
-                      target_img_metas):
+                      target_img_metas, gt_depth_map=None):
         """Forward function for training.
 
         Args:
@@ -287,7 +287,8 @@ class DACS(UDADecorator):
 
         # Train on source images
         clean_losses = self.get_model().forward_train(
-            img, img_metas, gt_semantic_seg, return_feat=True)
+            img, img_metas, gt_semantic_seg, gt_depth_map=gt_depth_map,
+            return_feat=True)
         src_feat = clean_losses.pop('features')
         clean_loss, clean_log_vars = self._parse_losses(clean_losses)
         log_vars.update(clean_log_vars)
@@ -359,7 +360,7 @@ class DACS(UDADecorator):
 
         # Train on mixed images
         mix_losses = self.get_model().forward_train(
-            mixed_img, img_metas, mixed_lbl, pseudo_weight, return_feat=True)
+            mixed_img, img_metas, mixed_lbl, seg_weight=pseudo_weight, return_feat=True)
         mix_losses.pop('features')
         mix_losses = add_prefix(mix_losses, 'mix')
         mix_loss, mix_log_vars = self._parse_losses(mix_losses)

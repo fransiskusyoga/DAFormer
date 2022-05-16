@@ -24,6 +24,7 @@ class EncoderDecoder(BaseSegmentor):
     def __init__(self,
                  backbone,
                  decode_head,
+                 depth_head=None,
                  neck=None,
                  auxiliary_head=None,
                  train_cfg=None,
@@ -39,6 +40,7 @@ class EncoderDecoder(BaseSegmentor):
         if neck is not None:
             self.neck = builder.build_neck(neck)
         self._init_decode_head(decode_head)
+        self._init_depth_head(depth_head)
         self._init_auxiliary_head(auxiliary_head)
 
         self.train_cfg = train_cfg
@@ -51,6 +53,13 @@ class EncoderDecoder(BaseSegmentor):
         self.decode_head = builder.build_head(decode_head)
         self.align_corners = self.decode_head.align_corners
         self.num_classes = self.decode_head.num_classes
+
+    def _init_depth_head(self, depth_head):
+        """Initialize ``decode_head``"""
+        if depth_head == None:
+            self.depth_head = None
+        else:
+            self.depth_head = builder.build_head(depth_head)
 
     def _init_auxiliary_head(self, auxiliary_head):
         """Initialize ``auxiliary_head``"""
@@ -96,6 +105,25 @@ class EncoderDecoder(BaseSegmentor):
 
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
+    
+    def _depth_head_forward_train(self,
+                                   x,
+                                   img_metas,
+                                   gt_depth_map):
+        """Run forward function and calculate loss for decode head in
+        training."""
+        losses = dict()
+        pred_depth = self.depth_head.forward(x)
+        pred_depth = resize(
+            input=pred_depth,
+            size=gt_depth_map.shape[-2:],
+            mode='bilinear',
+            align_corners=self.align_corners)
+
+        losses['loss_depth'] = self.depth_head.loss_decode(pred_depth,gt_depth_map)
+
+        losses.update(add_prefix(losses, 'depth'))
+        return losses
 
     def _decode_head_forward_test(self, x, img_metas):
         """Run forward function and calculate loss for decode head in
@@ -135,7 +163,8 @@ class EncoderDecoder(BaseSegmentor):
                       img_metas,
                       gt_semantic_seg,
                       seg_weight=None,
-                      return_feat=False):
+                      return_feat=False,
+                      gt_depth_map=None):
         """Forward function for training.
 
         Args:
@@ -162,6 +191,12 @@ class EncoderDecoder(BaseSegmentor):
                                                       seg_weight)
         losses.update(loss_decode)
 
+        if (gt_depth_map is not None) and (self.depth_head is not None):
+            loss_depth = self._depth_head_forward_train(
+                x, img_metas,
+                gt_depth_map)
+            losses.update(loss_depth)
+        
         if self.with_auxiliary_head:
             loss_aux = self._auxiliary_head_forward_train(
                 x, img_metas, gt_semantic_seg, seg_weight)

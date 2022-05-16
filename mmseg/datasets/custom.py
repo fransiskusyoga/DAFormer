@@ -81,6 +81,7 @@ class CustomDataset(Dataset):
                  img_dir,
                  img_suffix='.jpg',
                  ann_dir=None,
+                 depth_dir=None,
                  seg_map_suffix='.png',
                  split=None,
                  data_root=None,
@@ -93,6 +94,7 @@ class CustomDataset(Dataset):
         self.img_dir = img_dir
         self.img_suffix = img_suffix
         self.ann_dir = ann_dir
+        self.depth_dir = depth_dir
         self.seg_map_suffix = seg_map_suffix
         self.split = split
         self.data_root = data_root
@@ -109,6 +111,8 @@ class CustomDataset(Dataset):
                 self.img_dir = osp.join(self.data_root, self.img_dir)
             if not (self.ann_dir is None or osp.isabs(self.ann_dir)):
                 self.ann_dir = osp.join(self.data_root, self.ann_dir)
+            if not (self.depth_dir is None or osp.isabs(self.depth_dir)):
+                self.depth_dir = osp.join(self.data_root, self.depth_dir)
             if not (self.split is None or osp.isabs(self.split)):
                 self.split = osp.join(self.data_root, self.split)
 
@@ -178,6 +182,7 @@ class CustomDataset(Dataset):
         results['seg_fields'] = []
         results['img_prefix'] = self.img_dir
         results['seg_prefix'] = self.ann_dir
+        results['depth_prefix'] = self.depth_dir
         if self.custom_classes:
             results['label_map'] = self.label_map
 

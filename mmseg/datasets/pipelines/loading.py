@@ -4,6 +4,7 @@ import os.path as osp
 
 import mmcv
 import numpy as np
+import cv2
 
 from ..builder import PIPELINES
 
@@ -153,3 +154,17 @@ class LoadAnnotations(object):
         repr_str += f'(reduce_zero_label={self.reduce_zero_label},'
         repr_str += f"imdecode_backend='{self.imdecode_backend}')"
         return repr_str
+
+
+@PIPELINES.register_module()
+class LoadDepthAnnotations(object):
+    def __init__(self):
+        self.max_depth_val = 65536.0
+    def __call__(self, results):
+        file = osp.join(results['depth_prefix'], results['img_info']['filename'])
+        gt_depth_map = cv2.imread(str(file), flags=cv2.IMREAD_ANYDEPTH).astype(np.float32)
+        # gt_depth_map = cv2.resize(gt_depth_map, tuple(labels_size), interpolation=cv2.INTER_NEAREST)
+        gt_depth_map = self.max_depth_val / (gt_depth_map + 1)  # inverse depth
+        results['gt_depth_map'] = gt_depth_map
+        results['seg_fields'].append('gt_depth_map')
+        return results

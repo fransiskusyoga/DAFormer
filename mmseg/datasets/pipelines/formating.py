@@ -211,6 +211,8 @@ class DefaultFormatBundle(object):
                 to_tensor(results['gt_semantic_seg'][None,
                                                      ...].astype(np.int64)),
                 stack=True)
+        if 'gt_depth_map' in results:
+            results['gt_depth_map'] = DC(to_tensor(results['gt_depth_map'][None, ...]), stack=True)
         return results
 
     def __repr__(self):
@@ -288,3 +290,4 @@ class Collect(object):
     def __repr__(self):
         return self.__class__.__name__ + \
                f'(keys={self.keys}, meta_keys={self.meta_keys})'
+
