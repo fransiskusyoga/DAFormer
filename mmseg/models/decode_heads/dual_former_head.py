@@ -5,6 +5,8 @@ from audioop import bias
 import copy
 from typing import Optional, List
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
+from mmcv.cnn.bricks.transformer import build_positional_encoding
+from torch.nn.init import normal_
 
 import torch
 import torch.nn.functional as F
@@ -48,10 +50,11 @@ class MaskAttention(nn.Module):
     def __init__(self,
                  dim,
                  n_channels,
-                 kv_reduct =16,
-                 q_reduct =4,
+                 kv_reduct=16,
+                 kv_pool=8,
+                 q_reduct=4,
                  emb_dim=128,
-                 n_heads = 4,
+                 n_heads=4,
                  qkv_bias=False,
                  qk_scale=None,
                  attn_drop=0,
@@ -63,15 +66,36 @@ class MaskAttention(nn.Module):
         self.emb_dim = emb_dim
         self.dim = dim
         self.n_heads = n_heads
+        self.q_reduct = q_reduct
+        self.kv_reduct = kv_reduct
         self.scale = qk_scale or 1.0/math.sqrt(emb_dim)
+
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj_drop = nn.Dropout(proj_drop)
+
         self.conv_q = nn.Conv2d(
             total_dim, n_heads*emb_dim, q_reduct, stride=q_reduct, padding='valid', bias=qkv_bias)
-        self.conv_k = nn.Conv2d(
-            total_dim, n_heads*emb_dim, kv_reduct, stride=kv_reduct, padding='valid', bias=qkv_bias)
-        self.conv_v = nn.Conv2d(
-            total_dim, n_heads*total_dim, kv_reduct, stride=kv_reduct, padding='valid', bias=qkv_bias)
+        self.conv_k = nn.Sequential(
+            nn.AvgPool2d(kv_pool),
+            nn.Conv2d(
+                total_dim, 
+                n_heads*emb_dim, 
+                kv_reduct//kv_pool, 
+                stride=kv_reduct//kv_pool, 
+                padding='valid', 
+                bias=qkv_bias)
+        )
+        self.conv_v = nn.Sequential(
+            nn.AvgPool2d(kv_pool),
+            nn.Conv2d(
+                total_dim, 
+                n_heads*total_dim, 
+                kv_reduct//kv_pool, 
+                stride=kv_reduct//kv_pool, 
+                padding='valid', 
+                bias=qkv_bias)
+        )
+
         self.aggregator = nn.Conv2d(
             n_heads, 1, 1, bias=False) #kernel=1 output=1 channel
         self._reset_parameters()
@@ -121,8 +145,9 @@ class MaskAttention(nn.Module):
 
         # Make it the simillar size with the input
         flat_imgs = []
+        curr_sz = [hw_lvl[0][0]//self.q_reduct, hw_lvl[0][1]//self.q_reduct] #CZ_0, CZ_1
         for i in range(len(hw_lvl)):
-            flat_img = attn[:,i*self.dim:(i+1)*self.dim,:].reshape(B,self.dim,*hw_lvl[0]) # [B,C,H_0,W_0]
+            flat_img = attn[:,i*self.dim:(i+1)*self.dim,:].reshape(B,self.dim,*curr_sz) # [B,C,CZ_0, CZ_1]
             flat_img = F.interpolate(img, size=hw_lvl[i], mode='bilinear') # [B,C,H_i,W_i]
             flat_img = flat_img.reshape(B,self.dim,-1) # [B,C,H_i*W_i]
             flat_imgs.append(flat_img)
@@ -159,7 +184,7 @@ class QueryAttention(nn.Module):
                 nn.init.xavier_uniform_(p)
 
     @force_fp32(apply_to=('query', 'key', 'value'))
-    def forward(self, query, key, value, hw_lvl):
+    def forward(self, query, key, value):
         B, N, C = query.shape
         _, L, _ = key.shape
         #print('query, key, value', query.shape, value.shape, key.shape)
@@ -262,10 +287,20 @@ class AttentionTail(nn.Module):
 class Block(nn.Module):
     def __init__(self,
                  dim,
-                 num_heads,
+                 n_channels,
+                 # query variable
+                 query_num_heads=8,
+                 query_qk_scale=None,
+                 # mask variable
+                 mask_kv_reduct=16,
+                 mask_kv_pool=8,
+                 mask_q_reduct=4,
+                 mask_emb_dim=128,
+                 mask_num_heads=4,
+                 mask_qk_scale=None,
+                 # query and maskk common variable
                  mlp_ratio=4.,
                  qkv_bias=False,
-                 qk_scale=None,
                  drop=0.,
                  attn_drop=0.,
                  drop_path=0.,
@@ -275,35 +310,67 @@ class Block(nn.Module):
         super().__init__()
         self.fp16_enabled = False
         self.head_norm1 = norm_layer(dim)
+        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
+        self.drop_path = DropPath(
+            drop_path) if drop_path > 0. else nn.Identity()
+        
+        # Query model
         self.query_attn = QueryAttention(dim,
-                              num_heads=num_heads,
+                              num_heads=query_num_heads,
                               qkv_bias=qkv_bias,
-                              qk_scale=qk_scale,
+                              qk_scale=query_qk_scale,
                               attn_drop=attn_drop,
                               proj_drop=drop)
                  
-        # NOTE: drop path for stochastic depth, we shall see if this is better than dropout here
-
-        self.drop_path = DropPath(
-            drop_path) if drop_path > 0. else nn.Identity()
         self.head_norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
-        self.mlp = Mlp(in_features=dim,
+        self.mlp_q = Mlp(in_features=dim,
                        hidden_features=mlp_hidden_dim,
                        act_layer=act_layer,
                        drop=drop)
+        
+        # Mask Model
+        self.mask_attn = MaskAttention(
+                    dim,
+                    n_channels, #
+                    kv_reduct=mask_kv_reduct,
+                    kv_pool=mask_kv_pool,
+                    q_reduct=mask_q_reduct,
+                    emb_dim=mask_emb_dim,
+                    n_heads=mask_num_heads,
+                    qk_scale=mask_qk_scale,
+                    attn_drop=attn_drop,
+                    proj_drop=drop,
+                    qkv_bias=qkv_bias)
+        self.head_norm3 = norm_layer(dim)
+        self.head_norm4 = norm_layer(dim)
+        mlp_hidden_dim = int(dim * mlp_ratio)
+        self.mlp_m = Mlp(in_features=dim,
+                       hidden_features=mlp_hidden_dim,
+                       act_layer=act_layer,
+                       drop=drop)
+        
+        self.a = nn.Parameter(torch.tensor(0.1))
+
 
 
     @force_fp32(apply_to=('query', 'key', 'value'))
     def forward(self, query, key, value, hw_lvl=None):
-        query = self.query_attn(query, key, value, hw_lvl=hw_lvl)
-        query = query + self.drop_path(query)
+        # query head
+        x = self.query_attn(query, key, value)
+        query = query + self.drop_path(x)
         query = self.head_norm1(query)
-
-        query = query + self.drop_path(self.mlp(query))
+        query = query + self.drop_path(self.mlp_q(query))
         query = self.head_norm2(query)
 
-        return query,
+        # mask head
+        mask = self.mask_attn(key,hw_lvl)
+        mask = key + self.a*self.drop_path(mask)
+        mask = self.head_norm3(mask)
+        mask = mask + self.drop_path(self.mlp_m(mask))
+        mask = self.head_norm4(mask)
+
+        return query, mask
 
 
 def drop_path(x, drop_prob: float = 0., training: bool = False):
@@ -345,15 +412,24 @@ class DropPath(nn.Module):
 @HEADS.register_module()
 class DualFormerHead(BaseDecodeHead):
     def __init__(self,
-                 num_head=2,
                  num_layers=1,
+                 query_num_heads=8,
+                 mask_kv_reduct=16,
+                 mask_kv_pool=8,
+                 mask_q_reduct=4,
+                 mask_emb_dim=128,
+                 mask_num_heads=4,
+                 mlp_ratio = 4,
+                 positional_encoding=dict(
+                    type='SinePositionalEncoding',
+                    num_feats=128,
+                    normalize=True),
                  **kwargs):
         super(DualFormerHead, self).__init__(
             input_transform='multiple_select', **kwargs)
 
         # some Default Falue
         self.fp16_enabled = False
-        mlp_ratio = 4
         qkv_bias = True
         qk_scale = None
         drop_rate = 0
@@ -364,19 +440,30 @@ class DualFormerHead(BaseDecodeHead):
         act_layer = None
         act_layer = act_layer or nn.GELU
         depth_model = self.in_channels[0]
-        block = Block(dim=depth_model,
-                      num_heads=num_head,
-                      mlp_ratio=mlp_ratio,
-                      qkv_bias=qkv_bias,
-                      qk_scale=qk_scale,
-                      drop=drop_rate,
-                      attn_drop=attn_drop_rate,
-                      drop_path=0,
-                      norm_layer=norm_layer,
-                      act_layer=act_layer)
+        block = Block(
+                 dim=depth_model,
+                 n_channels=len(self.in_channels),
+                 # query variable
+                 query_num_heads=query_num_heads,
+                 query_qk_scale=None,
+                 # mask variable
+                 mask_kv_reduct=mask_kv_reduct,
+                 mask_kv_pool=mask_kv_pool,
+                 mask_q_reduct=mask_q_reduct,
+                 mask_emb_dim=mask_emb_dim,
+                 mask_num_heads=mask_num_heads,
+                 mask_qk_scale=None,
+                 # query and mask common variable
+                 mlp_ratio=mlp_ratio,
+                 qkv_bias=qkv_bias,
+                 drop=drop_rate,
+                 attn_drop=attn_drop_rate,
+                 drop_path=0,
+                 act_layer=act_layer,
+                 norm_layer=norm_layer)
         self.blocks = _get_clones(block, num_layers)
         self.attnen = AttentionTail(depth_model,
-                                    num_heads=num_head,
+                                    num_heads=query_num_heads,
                                     qkv_bias=qkv_bias,
                                     qk_scale=qk_scale,
                                     attn_drop=attn_drop_rate,
@@ -386,7 +473,11 @@ class DualFormerHead(BaseDecodeHead):
                                         self.in_channels[0])
         self.stuff_query_pos = nn.Embedding(self.num_classes,
                                         self.in_channels[0])
+        self.positional_encoding = build_positional_encoding(positional_encoding)
+        self.level_embeds = nn.Parameter(
+            torch.Tensor(len(self.in_channels), self.in_channels[0]))
         self._reset_parameters()
+        normal_(self.level_embeds)
 
     def _reset_parameters(self):
         for p in self.parameters():
@@ -401,25 +492,39 @@ class DualFormerHead(BaseDecodeHead):
         #return tensor if pos is None else tensor + pos
     
     def forward(self, inputs):
-        cat_list = []
         batch_sz = inputs[0].shape[0]
         channel_sz = self.in_channels[0]
         
+        # generate positional encoding for mask transformer
+        pos_list = []
+        k=0
+        for i,data in enumerate(inputs):
+            if i in self.in_index:
+                x = data.new_zeros((batch_sz,*data.shape[-2:])).to(torch.bool) 
+                x = self.positional_encoding(x) 
+                x = x + self.level_embeds[k].view(1, -1, 1, 1)
+                x = x.permute(0,2,3,1).contiguous().reshape(batch_sz, -1, channel_sz)
+                pos_list.append(x)
+                k += 1
+        positional_inp = torch.cat(pos_list, dim=1)
+
+        cat_list = []
         # generate hw_lvl and streched input
         hw_lvl = []
         for i,data in enumerate(inputs):
             if i in self.in_index:
+                x = data.permute(0,2,3,1).contiguous().reshape(batch_sz, -1, channel_sz)
                 hw_lvl.append(data.shape[-2:])
-                cat_list.append(data.permute(0,2,3,1).reshape(batch_sz, -1, channel_sz))
+                cat_list.append(x)
         streched_inp = torch.cat(cat_list, dim=1)
 
-        # get semantic query
+        # get semantic segmentataion query
         query = [self.stuff_query.weight.unsqueeze(0) for i in range(batch_sz)]
         query = torch.cat(query, dim=0)
         query_pos = [self.stuff_query_pos.weight.unsqueeze(0) for i in range(batch_sz)]
         query_pos = torch.cat(query_pos, dim=0)
 
-        result = self.calculate(streched_inp, None, query, query_pos, hw_lvl)
+        result = self.calculate(streched_inp, positional_inp, query, query_pos, hw_lvl)
         result =  result.reshape(batch_sz, -1, hw_lvl[0][0], hw_lvl[0][1])
         return result
 
@@ -429,7 +534,7 @@ class DualFormerHead(BaseDecodeHead):
 
         key_value =  self.with_pos_embed(memory, pos_memory)
         for i, block in enumerate(self.blocks):
-            query_embed = block(
+            query_embed,key_value = block(
                                 self.with_pos_embed(query_embed, pos_query),
                                 key_value, # key
                                 key_value, # value
