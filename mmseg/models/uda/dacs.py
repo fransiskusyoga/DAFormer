@@ -12,6 +12,7 @@ import torch
 from matplotlib import pyplot as plt
 from timm.models.layers import DropPath
 from torch.nn.modules.dropout import _DropoutNd
+import torch.nn.functional as F
 
 from mmseg.core import add_prefix
 from mmseg.models import UDA, build_segmentor
@@ -178,6 +179,67 @@ class DACS(UDADecorator):
         feat_dist = self.fdist_lambda * feat_dist
         feat_loss, feat_log = self._parse_losses(
             {'loss_imnet_feat_dist': feat_dist})
+        feat_log.pop('loss', None)
+        return feat_loss, feat_log
+    
+    def calc_wasserstein_dist(self, gt, feat=None):
+        assert self.enable_wdist
+        # only consider last feature for all feature scale
+        inp = feat[-1]
+        # get the list of appeared class
+        all_classes = torch.unique(gt)
+        if (all_classes[-1] == 255): #ignore label 225
+            all_classes = all_classes[:-1]
+        
+        # rescale the ground truth
+        scale_factor = gt.shape[-1] // inp.shape[-1]
+        gt_rescaled = downscale_label_ratio(gt, scale_factor,
+                                            self.wdist_scale_min_ratio,
+                                            self.num_classes,
+                                            255).long().detach()
+        # generate one hot mask
+        gt_rescaled = gt_rescaled == all_classes[None,:,None,None]
+        
+        # calculate mean and var for every class and batch
+        BS = inp.shape(0)
+        AC = len(all_classes)
+        CHN = inp.shape(1) 
+        mean_tensor = []
+        var_tensor = []
+        for i in range(AC):
+            mask = gt_rescaled[:,i,:,:].unsqueeze(1)
+            mask = torch.tile(mask, [1,CHN,1,1])
+            n_pixels = torch.sum(mask,axis=[2,3])
+            # mean
+            temp = torch.sum(inp*mask,axis=[2,3])
+            mean_class = temp/n_pixels
+            mean_tensor.append(mean_class[:,None,:])
+            # variance
+            temp = inp-mean_class
+            temp = temp*temp
+            temp = torch.sum(temp*mask,axis=[2,3])
+            var_class = temp/n_pixels
+            var_tensor.append(var_class[:,None,:])
+        
+        mean_tensor = torch.cat(mean_tensor,dim=1) # [BS,AC,CHN]
+        var_tensor = torch.cat(var_tensor,dim=1) # [BS,AC,CHN]
+        
+        # calculate wasersien distance for every class pair
+        mean_x = mean_tensor[:,:,None,:] # [BS,AC,1,CHN]
+        var_x = var_tensor[:,:,None,:]   # [BS,AC,1,CHN]
+        mean_y = mean_tensor[:,None,:,:] # [BS,1,AC,CHN]
+        var_y = var_tensor[:,None,:,:]   # [BS,1,AC,CHN]
+
+        temp = (mean_x-mean_y)
+        W_dist = temp*temp + var_x + var_y \
+                    - 2*torch.sqrt(var_x*var_y) # [BS,AC,AC,CHN]
+        W_dist = torch.sqrt(torch.sum(W_dist,axis=3)) # [BS,AC,AC]
+        
+        # register the loss
+        feat_dist = torch.mean(W_dist)
+        feat_dist =  self.wdist_lambda * feat_dist
+        feat_loss, feat_log = self._parse_losses(
+            {'loss_wdist_seg_dist': feat_dist})
         feat_log.pop('loss', None)
         return feat_loss, feat_log
 
