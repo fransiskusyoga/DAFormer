@@ -36,5 +36,5 @@ model = dict(
                 norm_cfg=norm_cfg),
         ),
         loss_decode=dict(
-            type='BerHuLoss', loss_weight=0.05))
+            type='BerHuLoss', loss_weight=0.005))
     )

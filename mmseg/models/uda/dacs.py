@@ -58,6 +58,10 @@ class DACS(UDADecorator):
         self.fdist_classes = cfg['imnet_feature_dist_classes']
         self.fdist_scale_min_ratio = cfg['imnet_feature_dist_scale_min_ratio']
         self.enable_fdist = self.fdist_lambda > 0
+        self.wdist_lambda = cfg.get('wasserstein_feature_dist_lambda', 0)
+        self.wdist_scale_min_ratio = cfg.get('wasserstein_feature_dist_scale_min_ratio', None)
+        self.wdist_dist_func = cfg.get('wasserstein_feature_dist_func', 0)
+        self.enable_wdist = self.wdist_lambda > 0
         self.mix = cfg['mix']
         self.blur = cfg['blur']
         self.color_jitter_s = cfg['color_jitter_strength']
@@ -182,62 +186,78 @@ class DACS(UDADecorator):
         feat_log.pop('loss', None)
         return feat_loss, feat_log
     
+    def wasserstein_dist_one_batch(self, gt_rescaled, inp=None):
+        # get the list of appeared class
+        all_classes = torch.unique(gt_rescaled)
+        if (all_classes[-1] == 255): #ignore label 225
+            all_classes = all_classes[:-1]
+        
+        # generate one hot mask
+        gt_rescaled = gt_rescaled == all_classes.reshape([1,-1,1,1])
+        
+        # Reshape input for calculation
+        BS = inp.shape[0]
+        AC = len(all_classes)
+        CHN = inp.shape[1] 
+        mask = gt_rescaled.unsqueeze(2) #[BS,AC,1,H,W]
+        n_pixels = torch.sum(mask,axis=[3,4]) #[BS,AC,1]
+
+        inp = inp.unsqueeze(1) #[BS,1,CHN,H,W]
+        # calculate mean and var for every class and batch
+        mean_tensor = torch.sum(inp*mask,axis=[3,4])
+        mean_tensor = mean_tensor/n_pixels #[BS,AC,CHN]
+
+        var_tensor = inp-mean_tensor.reshape([BS,AC,CHN,1,1])
+        var_tensor = var_tensor*var_tensor
+        var_tensor = torch.sum(var_tensor*mask,axis=[3,4])
+        var_tensor = var_tensor/n_pixels #[BS,AC,CHN]
+        
+        # calculate wasersien distance for every class pair
+        mean_x = mean_tensor.unsqueeze(2) # [BS,AC,1,CHN]
+        mean_y = mean_tensor.unsqueeze(1) # [BS,1,AC,CHN]
+        var_x = var_tensor.unsqueeze(2) # [BS,AC,1,CHN]
+        var_y = var_tensor.unsqueeze(1) # [BS,1,AC,CHN]
+        
+        epsilon = 1.e-8 # without epsilon gradeint sqrt can be nan
+        temp = (mean_x-mean_y)
+        if(self.wdist_dist_func==0):
+            W_dist = temp*temp + var_x + var_y - 2*torch.sqrt(var_x*var_y + epsilon) # [BS,AC,AC,CHN]
+        else:
+            W_dist = temp*temp - var_x - var_y # [BS,AC,AC,CHN]
+        W_dist = torch.mean(W_dist,axis=3) # [BS,AC,AC]
+
+        # remove diagonal, no distance measurement againts itself
+        ident = torch.eye(AC).to(torch.bool).reshape([1,AC,AC]).tile(BS,1,1)
+        W_dist[ident] = 1
+        
+        if(self.wdist_dist_func==0):
+            # final result negative because bigger distance is better
+            loss = -torch.mean(torch.sqrt(W_dist))
+        else:
+            loss = -torch.mean(W_dist)
+        return loss
+
     def calc_wasserstein_dist(self, gt, feat=None):
         assert self.enable_wdist
         # only consider last feature for all feature scale
         inp = feat[-1]
-        # get the list of appeared class
-        all_classes = torch.unique(gt)
-        if (all_classes[-1] == 255): #ignore label 225
-            all_classes = all_classes[:-1]
-        
         # rescale the ground truth
         scale_factor = gt.shape[-1] // inp.shape[-1]
         gt_rescaled = downscale_label_ratio(gt, scale_factor,
                                             self.wdist_scale_min_ratio,
                                             self.num_classes,
                                             255).long().detach()
-        # generate one hot mask
-        gt_rescaled = gt_rescaled == all_classes[None,:,None,None]
         
-        # calculate mean and var for every class and batch
-        BS = inp.shape(0)
-        AC = len(all_classes)
-        CHN = inp.shape(1) 
-        mean_tensor = []
-        var_tensor = []
-        for i in range(AC):
-            mask = gt_rescaled[:,i,:,:].unsqueeze(1)
-            mask = torch.tile(mask, [1,CHN,1,1])
-            n_pixels = torch.sum(mask,axis=[2,3])
-            # mean
-            temp = torch.sum(inp*mask,axis=[2,3])
-            mean_class = temp/n_pixels
-            mean_tensor.append(mean_class[:,None,:])
-            # variance
-            temp = inp-mean_class
-            temp = temp*temp
-            temp = torch.sum(temp*mask,axis=[2,3])
-            var_class = temp/n_pixels
-            var_tensor.append(var_class[:,None,:])
-        
-        mean_tensor = torch.cat(mean_tensor,dim=1) # [BS,AC,CHN]
-        var_tensor = torch.cat(var_tensor,dim=1) # [BS,AC,CHN]
-        
-        # calculate wasersien distance for every class pair
-        mean_x = mean_tensor[:,:,None,:] # [BS,AC,1,CHN]
-        var_x = var_tensor[:,:,None,:]   # [BS,AC,1,CHN]
-        mean_y = mean_tensor[:,None,:,:] # [BS,1,AC,CHN]
-        var_y = var_tensor[:,None,:,:]   # [BS,1,AC,CHN]
+        #caculate loss
+        loss_sum = 0
+        for i in range(len(inp)):
+            gt1batch = gt_rescaled[i].unsqueeze(0)
+            inp1batch = inp[i].unsqueeze(0)
+            # print(gt1batch.shape, inp1batch.shape)
+            loss_sum += self.wasserstein_dist_one_batch(gt1batch, inp1batch)
+        loss_sum = loss_sum/len(inp)
 
-        temp = (mean_x-mean_y)
-        W_dist = temp*temp + var_x + var_y \
-                    - 2*torch.sqrt(var_x*var_y) # [BS,AC,AC,CHN]
-        W_dist = torch.sqrt(torch.sum(W_dist,axis=3)) # [BS,AC,AC]
-        
-        # register the loss
-        feat_dist = torch.mean(W_dist)
-        feat_dist =  self.wdist_lambda * feat_dist
+        feat_dist =  self.wdist_lambda * loss_sum
         feat_loss, feat_log = self._parse_losses(
             {'loss_wdist_seg_dist': feat_dist})
         feat_log.pop('loss', None)
@@ -292,7 +312,7 @@ class DACS(UDADecorator):
         src_feat = clean_losses.pop('features')
         clean_loss, clean_log_vars = self._parse_losses(clean_losses)
         log_vars.update(clean_log_vars)
-        clean_loss.backward(retain_graph=self.enable_fdist)
+        clean_loss.backward(retain_graph=self.enable_fdist|self.enable_wdist)
         if self.print_grad_magnitude:
             params = self.get_model().backbone.parameters()
             seg_grads = [
@@ -315,6 +335,12 @@ class DACS(UDADecorator):
                 fd_grads = [g2 - g1 for g1, g2 in zip(seg_grads, fd_grads)]
                 grad_mag = calc_grad_magnitude(fd_grads)
                 mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
+        
+        # wasserstein distnce
+        if self.enable_wdist:
+            feat_loss, feat_log = self.calc_wasserstein_dist(gt_semantic_seg,src_feat)
+            feat_loss.backward()
+            log_vars.update(add_prefix(feat_log, 'src'))
 
         # Generate pseudo-label
         for m in self.get_ema_model().modules():
