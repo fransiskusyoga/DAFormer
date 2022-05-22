@@ -1,7 +1,7 @@
 _base_ = [
     '../_base_/default_runtime.py',
     # DAFormer Network Architecture
-    '../_base_/models/daformer_depth_sepaspp_mitb5.py',
+    '../_base_/models/daformer_depth_sepaspp_r101.py',
     # Synthia->Cityscapes Data Loading
     '../_base_/datasets/uda_synthia_to_cityscapes_w_depth_512x512.py',
     # Basic UDA Self-Training
@@ -42,13 +42,13 @@ n_gpus = 1
 runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
-evaluation = dict(interval=100, metric='mIoU')
+evaluation = dict(interval=40000, metric='mIoU')
 # Meta Information for Result Analysis
-name = 'synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0_depth'
+name = 'synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_r101_s0_depth'
 exp = 'basic'
 name_dataset = 'synthia2cityscapes'
-name_architecture = 'daformer_depth_sepaspp_mitb5'
-name_encoder = 'mitb5'
+name_architecture = 'daformer_depth_sepaspp_r101'
+name_encoder = 'r101'
 name_decoder = 'daformer_depth_sepaspp'
 name_uda = 'dacs_a999_fd_things_rcs0.01_cpl'
 name_opt = 'adamw_6e-05_pmTrue_poly10warm_1x2_40k'

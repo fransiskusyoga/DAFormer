@@ -4,10 +4,21 @@ _base_ = ['daformer_conv1_mitb5.py']
 
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
+    pretrained='torchvision://resnet101',
+    backbone=dict(
+        type='ResNet',
+        depth=101,
+        num_stages=4,
+        out_indices=(0, 1, 2, 3),
+        #frozen_stages=1,
+        norm_cfg=dict(type='BN', requires_grad=False),
+        norm_eval=True,
+        style='pytorch'),
     depth_mix_init=0.1,
     depth_mix_adapt=True,
-    depth_mix_channels=[3],
     decode_head=dict(
+        in_channels=[256, 512, 1024, 2048],
+        in_index=[0, 1, 2, 3],
         decoder_params=dict(
             fusion_cfg=dict(
                 _delete_=True,
@@ -19,7 +30,7 @@ model = dict(
                 norm_cfg=norm_cfg))),
     depth_head=dict(
         type='DAFormerHead',
-        in_channels=[64, 128, 320, 512],
+        in_channels=[256, 512, 1024, 2048],
         in_index=[0, 1, 2, 3],
         channels=256,
         dropout_ratio=0.1,

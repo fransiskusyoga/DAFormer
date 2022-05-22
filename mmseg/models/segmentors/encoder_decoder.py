@@ -25,6 +25,9 @@ class EncoderDecoder(BaseSegmentor):
                  backbone,
                  decode_head,
                  depth_head=None,
+                 depth_mix_init=0,
+                 depth_mix_adapt=False,
+                 depth_mix_channels=None,
                  neck=None,
                  auxiliary_head=None,
                  train_cfg=None,
@@ -42,6 +45,15 @@ class EncoderDecoder(BaseSegmentor):
         self._init_decode_head(decode_head)
         self._init_depth_head(depth_head)
         self._init_auxiliary_head(auxiliary_head)
+
+        if (depth_mix_adapt):
+            self.depth_mix = nn.Parameter(torch.tensor(depth_mix_init))
+        else:
+            self.depth_mix = depth_mix_init
+        if depth_mix_channels == None :
+            self.depth_mix_channels = self.decode_head.in_index
+        else:
+            self.depth_mix_channels = depth_mix_channels
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
@@ -123,8 +135,20 @@ class EncoderDecoder(BaseSegmentor):
         losses['loss_depth'] = self.depth_head.loss_decode(pred_depth,gt_depth_map)
 
         losses.update(add_prefix(losses, 'depth'))
-        return losses
-
+        return losses,pred_depth
+    
+    def _compute_depth_mixing(self, x, pred_depth):
+        x = list(x)
+        for i in self.depth_mix_channels:
+            resized_depth = resize(
+                input=pred_depth,
+                size=x[i].shape[-2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
+            resized_depth = resized_depth*self.depth_mix + (1-self.depth_mix)
+            x[i] = x[i]*resized_depth
+        return x
+    
     def _decode_head_forward_test(self, x, img_metas):
         """Run forward function and calculate loss for decode head in
         inference."""
@@ -185,17 +209,20 @@ class EncoderDecoder(BaseSegmentor):
         losses = dict()
         if return_feat:
             losses['features'] = x
+        
+        
+        if (gt_depth_map is not None) and (self.depth_head is not None):
+            loss_depth,pred_depth = self._depth_head_forward_train(
+                x, img_metas,
+                gt_depth_map)
+            losses.update(loss_depth)
+            if (self.depth_mix!=0):
+                x = self._compute_depth_mixing(x, pred_depth)
 
         loss_decode = self._decode_head_forward_train(x, img_metas,
                                                       gt_semantic_seg,
                                                       seg_weight)
         losses.update(loss_decode)
-
-        if (gt_depth_map is not None) and (self.depth_head is not None):
-            loss_depth = self._depth_head_forward_train(
-                x, img_metas,
-                gt_depth_map)
-            losses.update(loss_depth)
         
         if self.with_auxiliary_head:
             loss_aux = self._auxiliary_head_forward_train(
