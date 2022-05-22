@@ -222,19 +222,23 @@ class DACS(UDADecorator):
         temp = (mean_x-mean_y)
         if(self.wdist_dist_func==0):
             W_dist = temp*temp + var_x + var_y - 2*torch.sqrt(var_x*var_y + epsilon) # [BS,AC,AC,CHN]
-        else:
-            W_dist = temp*temp - var_x - var_y # [BS,AC,AC,CHN]
-        W_dist = torch.mean(W_dist,axis=3) # [BS,AC,AC]
+            W_dist = torch.mean(W_dist,axis=3) # [BS,AC,AC]
 
-        # remove diagonal, no distance measurement againts itself
-        ident = torch.eye(AC).to(torch.bool).reshape([1,AC,AC]).tile(BS,1,1)
-        W_dist[ident] = 1
-        
-        if(self.wdist_dist_func==0):
-            # final result negative because bigger distance is better
+            # remove diagonal, no distance measurement againts itself
+            ident = torch.eye(AC).to(torch.bool).reshape([1,AC,AC]).tile(BS,1,1)
+            W_dist[ident] = 1
+            
             loss = -torch.mean(torch.sqrt(W_dist))
         else:
+            W_dist = torch.sqrt(temp*temp + epsilon) - torch.sqrt(var_x + var_y + epsilon) # [BS,AC,AC,CHN]
+            W_dist = torch.mean(W_dist,axis=3) # [BS,AC,AC]
+
+            # remove diagonal, no distance measurement againts itself
+            ident = torch.eye(AC).to(torch.bool).reshape([1,AC,AC]).tile(BS,1,1)
+            W_dist[ident] = 1
+            
             loss = -torch.mean(W_dist)
+        
         return loss
 
     def calc_wasserstein_dist(self, gt, feat=None):
