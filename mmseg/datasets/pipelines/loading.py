@@ -255,13 +255,11 @@ class LoadAnnotationsPanUDA(object):
                  reduce_zero_label=False,
                  file_client_args=dict(backend='disk'),
                  imdecode_backend='pillow',
-                 flipodercategory=False, #this might me dangerous if you turn it on
                  num_classes=16):
         self.reduce_zero_label = reduce_zero_label
         self.file_client_args = file_client_args.copy()
         self.file_client = None
         self.imdecode_backend = imdecode_backend
-        self.flipodercategory = flipodercategory
         self.num_classes = num_classes
 
     def __call__(self, results):
@@ -303,10 +301,6 @@ class LoadAnnotationsPanUDA(object):
         - num_classes = the number of class. If there are any class is not between 
         0 and (num_classes-1) it will be assigned to 255
         """
-        if self.flipodercategory:
-            gt_bbox_category = self.num_classes - 1 - gt_bbox_category
-            outside_range = (gt_bbox_category<0) & (gt_bbox_category>=self.num_classes)
-            gt_bbox_category[outside_range] = 255
 
         # Panoptic segmentation map
         if results.get('pan_prefix', None) is not None:
