@@ -21,7 +21,7 @@ uda = dict(
     #imnet_feature_dist_lambda=0.005,
     #imnet_feature_dist_classes=[6, 7, 11, 12, 13, 14, 15, 16, 17, 18],
     #imnet_feature_dist_scale_min_ratio=0.75,
-    wasserstein_feature_dist_lambda=0.005,
+    wasserstein_feature_dist_lambda=0.0051,
     wasserstein_feature_dist_scale_min_ratio=0.75,
     wasserstein_feature_dist_func=1,
     # Pseudo-Label Crop
@@ -41,6 +41,11 @@ optimizer = dict(
             head=dict(lr_mult=10.0),
             pos_block=dict(decay_mult=0.0),
             norm=dict(decay_mult=0.0))))
+model = dict(
+    # freeze one stage of the backbone network.
+    backbone=dict(frozen_stages=1),
+)
+custom_hooks = [dict(type="UnfreezeBackboneIterBasedHookMIT", unfreeze_iter=1500)]
 n_gpus = 1
 runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration
@@ -48,7 +53,7 @@ checkpoint_config = dict(by_epoch=False, interval=40000, max_keep_ckpts=1)
 evaluation = dict(interval=4000, metric='mIoU')
 # Meta Information for Result Analysis
 #data = dict(samples_per_gpu=1)
-name = 'gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0'
+name = 'gta2cs_uda_warm_wdist_rcs_croppl_a999_daformer_mitb5_s0'
 exp = 'basic'
 name_dataset = 'gta2cityscapes'
 name_architecture = 'daformer_sepaspp_mitb5'

@@ -32,9 +32,11 @@ source env/bin/activate
 # python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_r101_s0.py
 # python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_dlv3p_r101_s0.py
 # python run_experiments.py --config configs/daformer/gta2cs_uda_warm_fdthings_rcs_croppl_a999_dlv3p_mitb5_s0.py
+
 #PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:25 python run_experiments.py --config configs/daformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0_depth.py
 #python run_experiments.py --config configs/daformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0_depth.py
 python run_experiments.py --config configs/daformer/gta2cs_uda_warm_wdist_rcs_croppl_a999_daformer_mitb5_s0.py
+#python run_experiments.py --config configs/daformer/synthia2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_r101_s0_depth.py 
 
 #XDG_CACHE_HOME=/scratch_net/biwidl312/ywibowo/.cache/ pip install mmcv-full==1.3.7 -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.10.0/index.html
 # pip install torch==1.10.2+cu111 torchvision==0.11.3+cu111 -f https://download.pytorch.org/whl/torch_stable.html

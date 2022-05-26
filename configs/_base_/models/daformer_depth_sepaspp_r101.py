@@ -14,8 +14,8 @@ model = dict(
         norm_cfg=dict(type='BN', requires_grad=False),
         norm_eval=True,
         style='pytorch'),
-    depth_mix_init=0.1,
-    depth_mix_adapt=True,
+    depth_mix_init=0.0,
+    depth_mix_adapt=False,
     decode_head=dict(
         in_channels=[256, 512, 1024, 2048],
         in_index=[0, 1, 2, 3],
@@ -50,5 +50,5 @@ model = dict(
                 norm_cfg=norm_cfg),
         ),
         loss_decode=dict(
-            type='BerHuLoss', loss_weight=0.0005))
+            type='BerHuLoss', loss_weight=0.005))
     )
