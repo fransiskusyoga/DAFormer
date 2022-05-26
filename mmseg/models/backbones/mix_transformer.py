@@ -205,6 +205,7 @@ class MixVisionTransformer(BaseModule):
                  style=None,
                  pretrained=None,
                  init_cfg=None,
+                 frozen_stages=0,
                  freeze_patch_embed=False):
         super().__init__(init_cfg)
 
@@ -316,7 +317,21 @@ class MixVisionTransformer(BaseModule):
                 sr_ratio=sr_ratios[3]) for i in range(depths[3])
         ])
         self.norm4 = norm_layer(embed_dims[3])
+    
+        self.frozen_stages = frozen_stages
+        self._freeze_stages()
 
+    def _freeze_stages(self):
+        for i in range(1, self.frozen_stages + 1):
+            params = getattr(self, f'patch_embed{i}')
+            for param in params.parameters():
+                param.requires_grad = False
+            params = getattr(self, f'block{i}')
+            for param in params.parameters():
+                param.requires_grad = False
+            params = getattr(self, f'norm{i}')
+            for param in params.parameters():
+                param.requires_grad = False
         # classification head
         # self.head = nn.Linear(embed_dims[3], num_classes) \
         #     if num_classes > 0 else nn.Identity()

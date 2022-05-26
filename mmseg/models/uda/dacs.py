@@ -316,7 +316,8 @@ class DACS(UDADecorator):
         src_feat = clean_losses.pop('features')
         clean_loss, clean_log_vars = self._parse_losses(clean_losses)
         log_vars.update(clean_log_vars)
-        clean_loss.backward(retain_graph=self.enable_fdist|self.enable_wdist)
+        frozen_backbone = (self.get_model().backbone.frozen_stages>=3)
+        clean_loss.backward(retain_graph = (self.enable_fdist|self.enable_wdist) & (not frozen_backbone) )
         if self.print_grad_magnitude:
             params = self.get_model().backbone.parameters()
             seg_grads = [
@@ -326,7 +327,7 @@ class DACS(UDADecorator):
             mmcv.print_log(f'Seg. Grad.: {grad_mag}', 'mmseg')
 
         # ImageNet feature distance
-        if self.enable_fdist:
+        if self.enable_fdist & (not frozen_backbone):
             feat_loss, feat_log = self.calc_feat_dist(img, gt_semantic_seg,
                                                       src_feat)
             feat_loss.backward()
@@ -341,7 +342,7 @@ class DACS(UDADecorator):
                 mmcv.print_log(f'Fdist Grad.: {grad_mag}', 'mmseg')
         
         # wasserstein distnce
-        if self.enable_wdist:
+        if self.enable_wdist & (not frozen_backbone):
             feat_loss, feat_log = self.calc_wasserstein_dist(gt_semantic_seg,src_feat)
             feat_loss.backward()
             log_vars.update(add_prefix(feat_log, 'src'))
