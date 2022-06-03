@@ -4,9 +4,9 @@ _base_ = ['daformer_conv1_mitb5.py']
 
 norm_cfg = dict(type='BN', requires_grad=True)
 model = dict(
-    depth_mix_init=1,
+    depth_mix_init=0.5,
     depth_mix_adapt=False,
-    depth_mix_channels=[3],
+    depth_mix_channels=[0,1,2,3],
     decode_head=dict(
         decoder_params=dict(
             fusion_cfg=dict(
@@ -39,5 +39,5 @@ model = dict(
                 norm_cfg=norm_cfg),
         ),
         loss_decode=dict(
-            type='BerHuLoss', loss_weight=0.05))
+            type='BerHuLoss', loss_weight=0.0005))
     )
