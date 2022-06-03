@@ -200,7 +200,7 @@ class OverlapPatchEmbed(nn.Module):
 class PyramidVisionTransformerImpr(nn.Module):
     def __init__(self, img_size=224, patch_size=16, in_chans=3, num_classes=1000, embed_dims=[64, 128, 256, 512],
                  num_heads=[1, 2, 4, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=False, qk_scale=None, drop_rate=0.,
-                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm,
+                 attn_drop_rate=0., drop_path_rate=0., norm_layer=nn.LayerNorm, frozen_stages=-1,
                  depths=[3, 4, 6, 3],out_indices=[1,2,3],  sr_ratios=[8, 4, 2, 1], pretrained=None):
         super().__init__()
         self.fp16_enabled = False
@@ -256,6 +256,8 @@ class PyramidVisionTransformerImpr(nn.Module):
 
         self.apply(self._init_weights)
         self.init_weights(pretrained)
+
+        self.frozen_stages = frozen_stages
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):

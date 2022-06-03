@@ -205,7 +205,7 @@ class MixVisionTransformer(BaseModule):
                  style=None,
                  pretrained=None,
                  init_cfg=None,
-                 frozen_stages=0,
+                 frozen_stages=-1,
                  freeze_patch_embed=False):
         super().__init__(init_cfg)
 

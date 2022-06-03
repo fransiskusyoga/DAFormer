@@ -316,7 +316,7 @@ class DACS(UDADecorator):
         src_feat = clean_losses.pop('features')
         clean_loss, clean_log_vars = self._parse_losses(clean_losses)
         log_vars.update(clean_log_vars)
-        frozen_backbone = (self.get_model().backbone.frozen_stages>=3)
+        frozen_backbone = (self.get_model().backbone.frozen_stages>=4) #assume backbone is 4 stages. if all 4 stages freezed dot do loss for backbone
         clean_loss.backward(retain_graph = (self.enable_fdist|self.enable_wdist) & (not frozen_backbone) )
         if self.print_grad_magnitude:
             params = self.get_model().backbone.parameters()
