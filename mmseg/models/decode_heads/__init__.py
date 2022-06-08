@@ -12,6 +12,7 @@ from .uper_head import UPerHead
 from .depth_former_head import DepthFormerHead
 from .mask_former_head import MaskFormerHead
 from .dual_former_head import DualFormerHead
+from .depth_aux_head import DadaDepthAuxBlock
 
 __all__ = [
     'FCNHead',
@@ -26,5 +27,6 @@ __all__ = [
     'ISAHead',
     'DepthFormerHead',
     'MaskFormerHead',
-    'DualFormerHead'
+    'DualFormerHead',
+    'DadaDepthAuxBlock'
 ]

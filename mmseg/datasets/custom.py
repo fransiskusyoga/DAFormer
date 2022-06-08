@@ -332,7 +332,7 @@ class CustomDataset(Dataset):
         Returns:
             dict[str, float]: Default metrics.
         """
-
+        
         if isinstance(metric, str):
             metric = [metric]
         allowed_metrics = ['mIoU', 'mDice', 'mFscore']

@@ -1,6 +1,8 @@
 # Obtained from: https://github.com/open-mmlab/mmsegmentation/tree/v0.16.0
 # Modifications: Support for seg_weight
 
+from distutils import dep_util
+from operator import truediv
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -126,27 +128,37 @@ class EncoderDecoder(BaseSegmentor):
         training."""
         losses = dict()
         pred_depth = self.depth_head.forward(x)
-        pred_depth = resize(
-            input=pred_depth,
-            size=gt_depth_map.shape[-2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
-
+        is_dada = isinstance(pred_depth[1],list)
+        if is_dada:
+            inter_feat = pred_depth[1]
+            pred_depth = pred_depth[0]
+            pred_depth = resize(
+                input=pred_depth,
+                size=gt_depth_map.shape[-2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
+        else:
+            inter_feat = [resize(
+                input=pred_depth,
+                size=ft.shape[-2:],
+                mode='bilinear',
+                align_corners=self.align_corners) for ft in x]
+            pred_depth = resize(
+                input=pred_depth,
+                size=gt_depth_map.shape[-2:],
+                mode='bilinear',
+                align_corners=self.align_corners)
         losses['loss_depth'] = self.depth_head.loss_decode(pred_depth,gt_depth_map)
 
         losses.update(add_prefix(losses, 'depth'))
-        return losses,pred_depth
+        return losses,inter_feat
     
-    def _compute_depth_mixing(self, x, pred_depth):
+    def _compute_depth_mixing(self, x, inter_feat):
         x = list(x)
         for i in self.depth_mix_channels:
-            resized_depth = resize(
-                input=pred_depth,
-                size=x[i].shape[-2:],
-                mode='bilinear',
-                align_corners=self.align_corners)
-            resized_depth = resized_depth*self.depth_mix + (1-self.depth_mix)
-            x[i] = x[i]*resized_depth
+            if inter_feat[i] is not None:
+                val = inter_feat[i]*self.depth_mix + (1-self.depth_mix)
+                x[i] = x[i]*val
         return x
     
     def _decode_head_forward_test(self, x, img_metas):
@@ -212,12 +224,12 @@ class EncoderDecoder(BaseSegmentor):
         
         
         if (gt_depth_map is not None) and (self.depth_head is not None):
-            loss_depth,pred_depth = self._depth_head_forward_train(
+            loss_depth,inter_feat = self._depth_head_forward_train(
                 x, img_metas,
                 gt_depth_map)
             losses.update(loss_depth)
             if (self.depth_mix!=0):
-                x = self._compute_depth_mixing(x, pred_depth)
+                x = self._compute_depth_mixing(x, inter_feat)
 
         loss_decode = self._decode_head_forward_train(x, img_metas,
                                                       gt_semantic_seg,
