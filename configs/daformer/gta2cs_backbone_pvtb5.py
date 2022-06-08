@@ -39,7 +39,8 @@ optimizer = dict(
             pos_block=dict(decay_mult=0.0),
             norm=dict(decay_mult=0.0))))
 n_gpus = 1
-runner = dict(type='IterBasedRunner', max_iters=40000)
+data = dict(workers_per_gpu=2)
+runner = dict(type='IterBasedRunner', max_iters=80000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
 evaluation = dict(interval=4000, metric='mIoU')

@@ -21,9 +21,9 @@ uda = dict(
     #imnet_feature_dist_lambda=0.005,
     #imnet_feature_dist_classes=[6, 7, 11, 12, 13, 14, 15, 16, 17, 18],
     #imnet_feature_dist_scale_min_ratio=0.75,
-    wasserstein_feature_dist_lambda=0.0051,
+    wasserstein_feature_dist_lambda=0.05,
     wasserstein_feature_dist_scale_min_ratio=0.75,
-    wasserstein_feature_dist_func=1,
+    wasserstein_feature_dist_func=0,
     # Pseudo-Label Crop
     pseudo_weight_ignore_top=15,
     pseudo_weight_ignore_bottom=120)
@@ -41,11 +41,8 @@ optimizer = dict(
             head=dict(lr_mult=10.0),
             pos_block=dict(decay_mult=0.0),
             norm=dict(decay_mult=0.0))))
-model = dict(
-    # freeze one stage of the backbone network.
-    backbone=dict(frozen_stages=1),
-)
-custom_hooks = [dict(type="UnfreezeBackboneIterBasedHookMIT", unfreeze_iter=1500)]
+#model = dict(backbone=dict(frozen_stages=1))
+#custom_hooks = [dict(type="UnfreezeBackboneIterBasedHookMIT", unfreeze_iter=1500)]
 n_gpus = 1
 runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration

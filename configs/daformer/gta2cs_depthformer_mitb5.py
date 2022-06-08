@@ -43,7 +43,9 @@ runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
 evaluation = dict(interval=4000, metric='mIoU')
-optimizer = dict(weight_decay=0.0001)
+# model = dict(backbone=dict(frozen_stages=4))
+# custom_hooks = [dict(type="UnfreezeBackboneIterBasedHookMIT", unfreeze_iter=10)]
+# optimizer = dict(weight_decay=0.0001)
 # Meta Information for Result Analysis
 name = 'gta2cs_depthformer_mitb5'
 exp = 'basic'

@@ -1,9 +1,9 @@
 _base_ = [
     '../_base_/default_runtime.py',
     # DAFormer Network Architecture
-    '../_base_/models/maskformer_mitb5.py',
+    '../_base_/models/deeplabv3plus_r101-d8.py',
     # GTA->Cityscapes Data Loading
-    '../_base_/datasets/uda_gta_to_cityscapes_512x512.py',
+    '../_base_/datasets/uda_synthia_to_cityscapes_w_depth_512x512.py',
     # Basic UDA Self-Training
     '../_base_/uda/dacs.py',
     # AdamW Optimizer
@@ -43,16 +43,12 @@ runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration
 checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
 evaluation = dict(interval=4000, metric='mIoU')
-#optimizer = dict(weight_decay=0.0001)
-#optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
-data = dict(samples_per_gpu=1)
-lr_config = dict(warmup_iters=4000)
 # Meta Information for Result Analysis
-name = 'gta2cs_maskformer_mitb5'
+name = 'synthia2cs_uda_warm_fdthings_rcs_croppl_a999_dlv3p_r101_s0'
 exp = 'basic'
-name_dataset = 'gta2cityscapes'
-name_architecture = 'maskformer_mitb5'
-name_encoder = 'mitb5'
-name_decoder = 'maskformer'
+name_dataset = 'synthia2cityscapes'
+name_architecture = 'deeplabv3plus_r101-d8'
+name_encoder = 'r101-d8'
+name_decoder = 'deeplabv3plus'
 name_uda = 'dacs_a999_fd_things_rcs0.01_cpl'
 name_opt = 'adamw_6e-05_pmTrue_poly10warm_1x2_40k'

@@ -6,7 +6,7 @@ model = dict(
     pretrained='open-mmlab://resnet101_v1c',
     depth_mix_init=0,
     depth_mix_adapt=False,
-    depth_mix_channels=[0,1,2,3],
+    depth_mix_channels=[3],
     backbone=dict(
         type='ResNetV1c',
         depth=101,
@@ -62,7 +62,7 @@ model = dict(
                 norm_cfg=norm_cfg),
         ),
         loss_decode=dict(
-            type='BerHuLoss', loss_weight=0.0005)),
+            type='BerHuLoss', loss_weight=0.005)),
     # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))

@@ -1,7 +1,7 @@
 _base_ = [
     '../_base_/default_runtime.py',
     # DAFormer Network Architecture
-    '../_base_/models/maskformer_mitb5.py',
+    '../_base_/models/daformer_sepaspp_mitb5.py',
     # GTA->Cityscapes Data Loading
     '../_base_/datasets/uda_gta_to_cityscapes_512x512.py',
     # Basic UDA Self-Training
@@ -38,21 +38,19 @@ optimizer = dict(
             head=dict(lr_mult=10.0),
             pos_block=dict(decay_mult=0.0),
             norm=dict(decay_mult=0.0))))
+model = dict(backbone=dict(frozen_stages=4))
+custom_hooks = [dict(type="UnfreezeBackboneIterBasedHookMIT", unfreeze_iter=1500)]
 n_gpus = 1
 runner = dict(type='IterBasedRunner', max_iters=40000)
 # Logging Configuration
-checkpoint_config = dict(by_epoch=False, interval=5000, max_keep_ckpts=1)
+checkpoint_config = dict(by_epoch=False, interval=40000, max_keep_ckpts=1)
 evaluation = dict(interval=4000, metric='mIoU')
-#optimizer = dict(weight_decay=0.0001)
-#optimizer_config = dict(grad_clip=dict(max_norm=0.1, norm_type=2))
-data = dict(samples_per_gpu=1)
-lr_config = dict(warmup_iters=4000)
 # Meta Information for Result Analysis
-name = 'gta2cs_maskformer_mitb5'
+name = 'gta2cs_uda_warm_fdthings_rcs_croppl_a999_daformer_mitb5_s0_init_freeze'
 exp = 'basic'
 name_dataset = 'gta2cityscapes'
-name_architecture = 'maskformer_mitb5'
+name_architecture = 'daformer_sepaspp_mitb5'
 name_encoder = 'mitb5'
-name_decoder = 'maskformer'
+name_decoder = 'daformer_sepaspp'
 name_uda = 'dacs_a999_fd_things_rcs0.01_cpl'
 name_opt = 'adamw_6e-05_pmTrue_poly10warm_1x2_40k'
